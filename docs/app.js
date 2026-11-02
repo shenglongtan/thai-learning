@@ -9,11 +9,11 @@
 
   /* ---------- 声调 ---------- */
   const TONE = {
-    mid: { n: '中调', c: '#4f94ff', m: '', y: 14, p: 'M6 14 L48 14' },
-    low: { n: '低调', c: '#3dbd73', m: 'ˋ', y: 9, p: 'M6 9 L48 19' },
-    falling: { n: '降调', c: '#f0605a', m: 'ˆ', y: 4, p: 'M6 4 L48 22' },
-    high: { n: '高调', c: '#f5a524', m: 'ˊ', y: 15, p: 'M6 15 L48 7' },
-    rising: { n: '升调', c: '#b274f0', m: 'ˇ', y: 13, p: 'M6 13 Q22 25 48 4' },
+    mid: { n: '中调', c: '#4f94ff', no: 1, th: 'สามัญ', y: 14, p: 'M6 14 L48 14' },
+    low: { n: '低调', c: '#3dbd73', no: 2, th: 'เอก', y: 9, p: 'M6 9 L48 19' },
+    falling: { n: '降调', c: '#f0605a', no: 3, th: 'โท', y: 4, p: 'M6 4 L48 22' },
+    high: { n: '高调', c: '#f5a524', no: 4, th: 'ตรี', y: 15, p: 'M6 15 L48 7' },
+    rising: { n: '升调', c: '#b274f0', no: 5, th: 'จัตวา', y: 13, p: 'M6 13 Q22 25 48 4' },
   };
   const toneOf = s => {
     const n = s.normalize('NFD');
@@ -25,18 +25,18 @@
     const roms = w.rom.split('-');
     return `<div class="syls ${cls}">${(w.tr || []).map((x, i) => {
       const c = TONE[x.tone].c;
-      return `<div class="syl" style="border-color:${c}"><b class="thai" style="color:${c}">${x.t}</b>${showRom() ? `<em style="color:${c}">${roms[i] || ''}</em>` : ''}${curve(x.tone)}<small style="color:${c}">${TONE[x.tone].n}${TONE[x.tone].m ? ' ' + TONE[x.tone].m : ''}</small></div>`;
+      return `<div class="syl" style="border-color:${c}"><b class="thai" style="color:${c}">${x.t}</b>${showRom() ? `<em style="color:${c}">${roms[i] || ''}</em>` : ''}${curve(x.tone)}<small style="color:${c}"><b>第${TONE[x.tone].no}声</b> ${TONE[x.tone].n}<br><span class="thai">${TONE[x.tone].th}</span></small></div>`;
     }).join('')}</div>`;
   };
-  const toneSum = w => (w.tr || []).map(x => `<span style="color:${TONE[x.tone].c}">${TONE[x.tone].n}</span>`).join(' · ');
+  const toneSum = w => (w.tr || []).map(x => `<span style="color:${TONE[x.tone].c}">第${TONE[x.tone].no}声</span>`).join(' · ');
   const colorRom = rom => !showRom() ? '' : rom.split(' ').map(wd => wd.split('-').map(s => `<span style="color:${TONE[toneOf(s)].c}">${s}</span>`).join('-')).join(' ');
   const ruleHtml = (w, light) => {
     const roms = w.rom.split('-');
     return `<div class="rules ${light ? 'lt' : ''}"><div class="rh">声调规则 <button class="lnk" data-a="go" data-v="#/rules">速查表 ›</button></div>${(w.tr || []).map((x, i) => {
       const c = TONE[x.tone].c, warn = x.calc && toneOf(roms[i] || '') !== x.tone;
-      return `<div class="rl" style="border-color:${c}"><div class="rt"><b class="thai">${x.t}</b><span class="tn" style="background:${c}">${TONE[x.tone].n}</span></div>
-        <div class="rd">${x.d.join(' · ')} <b style="color:${c}">→ ${TONE[x.tone].n}</b></div>
-        ${warn ? `<div class="rw">⚠ 按规则读${TONE[x.tone].n}；但这个词口语里常读成${TONE[toneOf(roms[i] || '')].n}（多为外来词／例外），待核对</div>` : ''}</div>`;
+      return `<div class="rl" style="border-color:${c}"><div class="rt"><b class="thai">${x.t}</b><span class="tn" style="background:${c}">第${TONE[x.tone].no}声 ${TONE[x.tone].n}</span></div>
+        <div class="rd">${x.d.join(' · ')} <b style="color:${c}">→ 第${TONE[x.tone].no}声（${TONE[x.tone].n}）</b></div>
+        ${warn ? `<div class="rw">⚠ 按规则读第${TONE[x.tone].no}声（${TONE[x.tone].n}）；但这个词口语里常读成第${TONE[toneOf(roms[i] || '')].no}声（${TONE[toneOf(roms[i] || '')].n}）（多为外来词／例外），待核对</div>` : ''}</div>`;
     }).join('')}</div>`;
   };
   const PAL = ['#f5d547', '#7be3a6', '#8ad4f5', '#f5a58a', '#c4a6f5'];
@@ -283,7 +283,7 @@
         ${sylBoxes(w, 'lt')}
         ${ruleHtml(w, true)}
         ${w.note ? `<div class="note" style="background:#fff;color:var(--text)"><span>🎵</span><span>${w.note}</span></div>` : ''}
-        <div class="legend">${Object.values(TONE).map(t => `<span><i style="background:${t.c}"></i>${t.n}</span>`).join('')}</div>
+        <div class="legend">${Object.values(TONE).map(t => `<span><i style="background:${t.c}"></i>第${t.no}声 ${t.n}</span>`).join('')}</div>
         <div class="exl">${exHtml(w, true)}</div>
       </div>
       <div class="ans ans4">${['陌生', '不熟悉', '熟悉', '精通'].map((t, i) => `<button class="l-${i}" data-a="level" data-v="${i}">${t}</button>`).join('')}</div>
@@ -355,16 +355,16 @@
 
   /* ---------- 页面：声调规则速查 ---------- */
   function rulesView() {
-    const cell = (t, x) => `<td style="color:${TONE[t].c}">${x || TONE[t].n}</td>`;
+    const cell = t => `<td style="color:${TONE[t].c}">${TONE[t].no}声<br><small>${TONE[t].n}</small></td>`;
     const lt = s => `<span class="thai">${s}</span>`;
-    const curves = Object.entries(TONE).map(([k, v]) => `<div class="cv" style="border-color:${v.c}">${curve(k)}<b style="color:${v.c}">${v.n}</b><small>${v.m || '无符号'}</small></div>`).join('');
+    const curves = Object.entries(TONE).map(([k, v]) => `<div class="cv" style="border-color:${v.c}">${curve(k)}<b style="color:${v.c}">第${v.no}声</b><small>${v.n}<br><span class="thai">${v.th}</span></small></div>`).join('');
     return `<div class="study-top"><button class="back" data-a="hist">‹</button><h2>声调规则速查</h2><span style="width:36px"></span></div>
       <div class="page rulepg">
-        <div class="rc"><h3>五个声调</h3><div class="cvs">${curves}</div></div>
+        <div class="rc"><h3>五个声调（第1–5声）</h3><div class="cvs">${curves}</div></div>
         <div class="rc"><h3>判断三步走</h3>
           <p><b>① 辅音类</b>：看起首辅音是高、中、低哪一类。</p>
           <p><b>② 活／死音节</b>：看元音长短和有没有尾音。</p>
-          <p><b>③ 声调符号</b>：有符号 ( ่ ้ ๊ ๋ ) 按符号定调；没有符号按下表默认调。</p></div>
+          <p><b>③ 声调符号</b>：有符号（ไม้เอก ่、ไม้โท ้、ไม้ตรี ๊、ไม้จัตวา ๋）按符号和辅音类定调；没有符号按下表默认调。注意符号名和声调不一定对应，如低辅音加 ไม้เอก 是第3声。</p></div>
         <div class="rc"><h3>① 三类辅音</h3>
           <p><b style="color:#3b82f6">中辅音（9）</b>${lt('ก จ ฎ ฏ ด ต บ ป อ')}</p>
           <p><b style="color:#f59e0b">高辅音（11）</b>${lt('ข ฃ ฉ ฐ ถ ผ ฝ ศ ษ ส ห')}</p>
@@ -378,7 +378,7 @@
           <table class="tt"><tr><th></th><th>无符号<br>活音节</th><th>无符号<br>死音节</th><th>${lt('่')}</th><th>${lt('้')}</th><th>${lt('๊')}</th><th>${lt('๋')}</th></tr>
             <tr><th style="color:#3b82f6">中辅音</th>${cell('mid')}${cell('low')}${cell('low')}${cell('falling')}${cell('high')}${cell('rising')}</tr>
             <tr><th style="color:#f59e0b">高辅音</th>${cell('rising')}${cell('low')}${cell('low')}${cell('falling')}<td>—</td><td>—</td></tr>
-            <tr><th style="color:#22a05a">低辅音</th>${cell('mid')}<td><span style="color:${TONE.high.c}">短→高调</span><br><span style="color:${TONE.falling.c}">长→降调</span></td>${cell('falling')}${cell('high')}<td>—</td><td>—</td></tr></table></div>
+            <tr><th style="color:#22a05a">低辅音</th>${cell('mid')}<td><span style="color:${TONE.high.c}">短→4声</span><br><span style="color:${TONE.falling.c}">长→3声</span></td>${cell('falling')}${cell('high')}<td>—</td><td>—</td></tr></table></div>
         <div class="rc"><h3>特殊情况</h3>
           <p><b>ห 引导</b>：${lt('ห')} 放在低响音辅音（${lt('ง ญ น ม ย ร ล ว')}）前，自己不发音，让后面的字按<b>高辅音</b>定调，如 ${lt('หนึ่ง หมู หวาน')}。</p>
           <p><b>อ 引导</b>：只有 ${lt('อยู่ อย่า อยาก อย่าง')} 四个词，${lt('อ')} 不发音，让 ${lt('ย')} 按<b>中辅音</b>定调。</p>
