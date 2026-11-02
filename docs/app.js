@@ -147,15 +147,25 @@
   const sayWord = (w, rate = RATE()) => { stopAudio(); return playOne('th', w.id, w.th, 'th-TH', rate, playToken); };
   const sayEx = w => { stopAudio(); return playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', RATE(), playToken); };
   const sayZh = w => { stopAudio(); return playOne('zh', zId(w), zText(w), 'zh-CN', RATE(), playToken); };
-  // 学习卡自动发音：单词，接着（连读开启时）例句
-  async function studyPlay(w) {
-    stopAudio();
-    const tok = playToken;
-    await playOne('th', w.id, w.th, 'th-TH', RATE(), tok);
-    if (tok !== playToken || !S.settings.chain) return;
-    await gap(500, tok);
+  // 一个词的连读顺序：单词（reps 遍）→ 单词的中文 → 例句 → 例句的中文（中文只在“读中文意思”开启时读，例句只在 withEx 时读）
+  async function playChain(w, tok, reps, withEx) {
+    const zh = S.settings.zhRead, r = RATE();
+    for (let k = 0; k < reps; k++) {
+      await playOne('th', w.id, w.th, 'th-TH', r, tok);
+      if (tok !== playToken) return;
+      await gap(k < reps - 1 ? 500 : 400, tok);
+    }
     if (tok !== playToken) return;
-    await playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', RATE(), tok);
+    if (zh) { await playOne('zh', zId(w), zText(w), 'zh-CN', r, tok); if (tok !== playToken) return; await gap(500, tok); }
+    if (tok !== playToken || !withEx) return;
+    await playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', r, tok);
+    if (tok !== playToken) return;
+    if (zh) { await gap(500, tok); if (tok !== playToken) return; await playOne('ezh', w.ex.id, w.ex.zh.replace(/（[^）]*）/g, ''), 'zh-CN', r, tok); }
+  }
+  // 学习卡自动发音
+  function studyPlay(w) {
+    stopAudio();
+    return playChain(w, playToken, 1, S.settings.chain);
   }
   // 间隔：陪睡模式用静音音频撑住，防止锁屏后系统挂起页面
   function gap(ms, tok, keep) {
@@ -304,18 +314,9 @@
     const tok = playToken;
     while (tok === playToken && AUTO && AUTO.playing) {
       const w = AUTO.list[AUTO.i];
-      for (let k = 0; k < S.settings.reps; k++) {
-        await playOne('th', w.id, w.th, 'th-TH', RATE(), tok);
-        if (tok !== playToken) return;
-        await gap(500, tok);
-      }
-      if (S.settings.readEx) { await playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', RATE(), tok); await gap(600, tok); }
+      await playChain(w, tok, S.settings.reps, S.settings.readEx);
       if (tok !== playToken) return;
-      if (S.settings.zhRead) {
-        await playOne('zh', zId(w), zText(w), 'zh-CN', RATE(), tok); await gap(500, tok);
-        if (tok !== playToken) return;
-        if (S.settings.readEx) { await playOne('ezh', w.ex.id, w.ex.zh.replace(/（[^）]*）/g, ''), 'zh-CN', RATE(), tok); await gap(600, tok); }
-      }
+      await gap(300, tok);
       if (tok !== playToken) return;
       if (AUTO.i < AUTO.list.length - 1) { AUTO.i++; render(); } else { AUTO.playing = false; render(); return; }
     }
@@ -415,10 +416,10 @@
         <div class="r col"><span>发音语速<small>单词、例句、连读、陪睡模式都按这个速度（倍速）</small></span>${seg('rate', RATES)}</div>
         <button class="r" style="width:100%;background:none" data-a="go" data-v="#/rules"><span>声调规则速查表</span><span>›</span></button>
         <div class="r"><span>学习卡自动发音</span>${sw('auto')}</div>
-        <div class="r"><span>学习卡连读例句<small>自动读完单词后，接着读例句</small></span>${sw('chain')}</div>
+        <div class="r"><span>学习卡连读例句<small>自动读完单词（和中文）后，接着读例句</small></span>${sw('chain')}</div>
         <div class="r"><span>显示罗马音<small>已会泰语拼读可关闭，只看泰文和声调规则</small></span>${sw('showRom')}</div>
-        <div class="r"><span>连读时读例句<small>读完单词后接着读泰语例句</small></span>${sw('readEx')}</div>
-        <div class="r"><span>连读时读中文意思<small>单词和例句的中文意思都读</small></span>${sw('zhRead')}</div>
+        <div class="r"><span>连读时读例句<small>读完单词（和它的中文）后，接着读泰语例句</small></span>${sw('readEx')}</div>
+        <div class="r"><span>连读时读中文意思<small>读完单词后读它的中文，读完例句后读例句的中文</small></span>${sw('zhRead')}</div>
         <div class="r"><span>解锁全部分类<small>关闭时需学完上一分类 50%</small></span>${sw('unlockAll')}</div>
       </div>
       <div class="setl">
