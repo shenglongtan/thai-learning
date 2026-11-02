@@ -55,12 +55,13 @@
   const KEY = 'thai.v1';
   const defaults = () => ({
     w: {}, days: [], today: { date: '', ids: [] },
-    settings: { daily: 10, reps: 3, rate: 1, showRom: false, auto: true, zhRead: true, readEx: true, unlockAll: false },
+    settings: { ver: 2, daily: 10, reps: 1, rate: 1, showRom: false, auto: true, zhRead: true, readEx: true, unlockAll: false },
     sleep: { dur: 30, cats: [], rand: false },
   });
   let S = (() => {
     try {
       const d = defaults(), j = JSON.parse(localStorage.getItem(KEY) || '{}');
+      if (j.settings && j.settings.ver !== 2) { delete j.settings.reps; j.settings.ver = 2; } // 旧版默认读 3 遍，改为默认 1 遍
       return { ...d, ...j, settings: { ...d.settings, ...j.settings }, sleep: { ...d.sleep, ...j.sleep } };
     } catch (e) { return defaults(); }
   })();
