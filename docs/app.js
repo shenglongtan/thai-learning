@@ -23,21 +23,19 @@
   const showRom = () => !!S.settings.showRom;
   const sylBoxes = (w, cls = '') => {
     const roms = w.rom.split('-');
-    return `<div class="syls ${cls}">${(w.tr || []).map((x, i) => {
+    return `<div class="syls ${cls} ${(w.tr || []).length > 3 ? 'many' : ''}">${(w.tr || []).map((x, i) => {
       const c = TONE[x.tone].c;
-      return `<div class="syl" style="border-color:${c}"><b class="thai" style="color:${c}">${x.t}</b>${showRom() ? `<em style="color:${c}">${roms[i] || ''}</em>` : ''}${curve(x.tone)}<small style="color:${c}"><b>第${TONE[x.tone].no}声</b> ${TONE[x.tone].n}<br><span class="thai">${TONE[x.tone].th}</span></small></div>`;
+      return `<div class="syl" style="border-color:${c}"><b class="thai" style="color:${c}">${x.t}</b>${showRom() ? `<em style="color:${c}">${roms[i] || ''}</em>` : ''}${curve(x.tone)}<small style="color:${c}"><b>第${TONE[x.tone].no}声</b> ${TONE[x.tone].n}</small></div>`;
     }).join('')}</div>`;
   };
   const toneSum = w => (w.tr || []).map(x => `<span style="color:${TONE[x.tone].c}">第${TONE[x.tone].no}声</span>`).join(' · ');
   const colorRom = rom => !showRom() ? '' : rom.split(' ').map(wd => wd.split('-').map(s => `<span style="color:${TONE[toneOf(s)].c}">${s}</span>`).join('-')).join(' ');
   const ruleHtml = (w, light) => {
     const roms = w.rom.split('-');
-    return `<div class="rules ${light ? 'lt' : ''}"><div class="rh">声调规则 <button class="lnk" data-a="go" data-v="#/rules">速查表 ›</button></div>${(w.tr || []).map((x, i) => {
+    return `<div class="rules ${light ? 'lt' : ''}"><div class="rh"><span>声调规则</span><button class="lnk" data-a="go" data-v="#/rules">速查表 ›</button></div><div class="rbody">${(w.tr || []).map((x, i) => {
       const c = TONE[x.tone].c, warn = x.calc && toneOf(roms[i] || '') !== x.tone;
-      return `<div class="rl" style="border-color:${c}"><div class="rt"><b class="thai">${x.t}</b><span class="tn" style="background:${c}">第${TONE[x.tone].no}声 ${TONE[x.tone].n}</span></div>
-        <div class="rd">${x.d.join(' · ')} <b style="color:${c}">→ 第${TONE[x.tone].no}声（${TONE[x.tone].n}）</b></div>
-        ${warn ? `<div class="rw">⚠ 按规则读第${TONE[x.tone].no}声（${TONE[x.tone].n}）；但这个词口语里常读成第${TONE[toneOf(roms[i] || '')].no}声（${TONE[toneOf(roms[i] || '')].n}）（多为外来词／例外），待核对</div>` : ''}</div>`;
-    }).join('')}</div>`;
+      return `<div class="rl" style="border-color:${c}"><b class="thai" style="color:${c}">${x.t}</b><span class="rd">${x.d.join(' · ')} <b style="color:${c}">→ 第${TONE[x.tone].no}声</b>${warn ? `<span class="rw">⚠ 按规则读第${TONE[x.tone].no}声，口语常读第${TONE[toneOf(roms[i] || '')].no}声（外来词／例外），待核对</span>` : ''}</span></div>`;
+    }).join('')}</div></div>`;
   };
   // 例句里每个词一种颜色，对应的中文用同一种颜色（深色卡片用亮色，白底用深色）
   const PAL = ['#f5d547', '#7be3a6', '#8ad4f5', '#f5a58a', '#c4a6f5', '#f58ac8', '#b8e65c', '#fdba74'];
@@ -246,7 +244,7 @@
     }
     const w = BY[SES.q[SES.i]];
     if (S.settings.auto) setTimeout(() => sayWord(w), 200);
-    return `<div class="study-top"><button class="back" data-a="back" data-v="#/today">‹</button><h2>${SES.title} ${Math.min(SES.i + 1, SES.total)}/${SES.total}</h2><button class="spdm" data-a="studySpeed" title="发音语速">🐢 ${RATE()}×</button></div>
+    return `<div class="fit"><div class="study-top"><button class="back" data-a="back" data-v="#/today">‹</button><h2>${SES.title} ${Math.min(SES.i + 1, SES.total)}/${SES.total}</h2><button class="spdm" data-a="studySpeed" title="发音语速">🐢 ${RATE()}×</button></div>
       <div class="bar"><i style="width:${SES.i / SES.q.length * 100}%"></i></div>
       <div class="scard">
         <div class="big thai">${w.th}<button class="spk" data-a="sayWord" data-v="${w.id}">🔊</button></div>
@@ -257,7 +255,7 @@
         <div class="zh">${w.zh}<button class="spk sm" style="margin-left:8px" data-a="sayZh" data-v="${w.id}">🔊</button></div>
         <div class="exbox">${exHtml(w, false)}</div>
       </div>
-      <div class="ans"><button class="a-miss" data-a="rate" data-v="0">没记住</button><button class="a-ok" data-a="rate" data-v="1">记得</button><button class="a-easy" data-a="rate" data-v="2">太简单</button></div>`;
+      <div class="ans"><button class="a-miss" data-a="rate" data-v="0">没记住</button><button class="a-ok" data-a="rate" data-v="1">记得</button><button class="a-easy" data-a="rate" data-v="2">太简单</button></div></div>`;
   }
 
   /* ---------- 页面：复习 ---------- */
@@ -276,7 +274,7 @@
     const c = CBY[id]; if (!c) return home();
     if (!AUTO || AUTO.cat !== id) AUTO = { cat: id, list: catWords(id), i: 0, playing: false };
     const A = AUTO, w = A.list[A.i];
-    return `<div class="light-top"><button class="back" data-a="back" data-v="#/cat/${id}">‹ 返回</button><div class="pg"><i style="width:${(A.i + 1) / A.list.length * 100}%"></i></div><span class="ct">${A.i + 1} / ${A.list.length}</span></div>
+    return `<div class="fit lightfit"><div class="light-top"><button class="back" data-a="back" data-v="#/cat/${id}">‹ 返回</button><div class="pg"><i style="width:${(A.i + 1) / A.list.length * 100}%"></i></div><span class="ct">${A.i + 1} / ${A.list.length}</span></div>
       <button class="autoplay" data-a="autoToggle">${A.playing ? '⏸ 暂停连读' : '▶ 自动连读：每个词 泰语' + S.settings.reps + '遍' + (S.settings.zhRead ? ' + 中文' : '')}</button>
       <label class="chk"><input type="checkbox" data-a="zhToggle" ${S.settings.zhRead ? 'checked' : ''}> 同时读中文意思</label>
       <div class="acard">
@@ -285,11 +283,10 @@
         ${sylBoxes(w, 'lt')}
         ${ruleHtml(w, true)}
         ${w.note ? `<div class="note" style="background:#fff;color:var(--text)"><span>🎵</span><span>${w.note}</span></div>` : ''}
-        <div class="legend">${Object.values(TONE).map(t => `<span><i style="background:${t.c}"></i>第${t.no}声 ${t.n}</span>`).join('')}</div>
         <div class="exl">${exHtml(w, true)}</div>
       </div>
       <div class="ans ans4">${['陌生', '不熟悉', '熟悉', '精通'].map((t, i) => `<button class="l-${i}" data-a="level" data-v="${i}">${t}</button>`).join('')}</div>
-      <div class="nav3"><button data-a="autoPrev">‹ 上一词</button><span>选择熟练度</span><button data-a="autoNext">下一词 ›</button></div>`;
+      <div class="nav3"><button data-a="autoPrev">‹ 上一词</button><span>选择熟练度</span><button data-a="autoNext">下一词 ›</button></div></div>`;
   }
   async function autoLoop() {
     stopAudio();
