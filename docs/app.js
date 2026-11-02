@@ -55,7 +55,7 @@
   const KEY = 'thai.v1';
   const defaults = () => ({
     w: {}, days: [], today: { date: '', ids: [] },
-    settings: { ver: 2, daily: 10, reps: 1, rate: 1, showRom: false, auto: true, zhRead: true, readEx: true, unlockAll: false },
+    settings: { ver: 2, daily: 10, reps: 1, rate: 1, showRom: false, auto: true, zhRead: true, readEx: true, chain: true, unlockAll: false },
     sleep: { dur: 30, cats: [], rand: false },
   });
   let S = (() => {
@@ -147,6 +147,16 @@
   const sayWord = (w, rate = RATE()) => { stopAudio(); return playOne('th', w.id, w.th, 'th-TH', rate, playToken); };
   const sayEx = w => { stopAudio(); return playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', RATE(), playToken); };
   const sayZh = w => { stopAudio(); return playOne('zh', zId(w), zText(w), 'zh-CN', RATE(), playToken); };
+  // 学习卡自动发音：单词，接着（连读开启时）例句
+  async function studyPlay(w) {
+    stopAudio();
+    const tok = playToken;
+    await playOne('th', w.id, w.th, 'th-TH', RATE(), tok);
+    if (tok !== playToken || !S.settings.chain) return;
+    await gap(500, tok);
+    if (tok !== playToken) return;
+    await playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', RATE(), tok);
+  }
   // 间隔：陪睡模式用静音音频撑住，防止锁屏后系统挂起页面
   function gap(ms, tok, keep) {
     if (!keep) return new Promise(r => setTimeout(r, ms));
@@ -244,7 +254,7 @@
         <button class="pill" style="max-width:260px;margin:20px auto 0;display:block;width:100%" data-a="go" data-v="#/today">回首页</button></div>`;
     }
     const w = BY[SES.q[SES.i]];
-    if (S.settings.auto) setTimeout(() => sayWord(w), 200);
+    if (S.settings.auto) setTimeout(() => studyPlay(w), 200);
     return `<div class="fit"><div class="study-top"><button class="back" data-a="back" data-v="#/today">‹</button><h2>${SES.title} ${Math.min(SES.i + 1, SES.total)}/${SES.total}</h2><button class="spdm" data-a="studySpeed" title="发音语速">🐢 ${RATE()}×</button></div>
       <div class="bar"><i style="width:${SES.i / SES.q.length * 100}%"></i></div>
       <div class="scard">
@@ -405,6 +415,7 @@
         <div class="r col"><span>发音语速<small>单词、例句、连读、陪睡模式都按这个速度（倍速）</small></span>${seg('rate', RATES)}</div>
         <button class="r" style="width:100%;background:none" data-a="go" data-v="#/rules"><span>声调规则速查表</span><span>›</span></button>
         <div class="r"><span>学习卡自动发音</span>${sw('auto')}</div>
+        <div class="r"><span>学习卡连读例句<small>自动读完单词后，接着读例句</small></span>${sw('chain')}</div>
         <div class="r"><span>显示罗马音<small>已会泰语拼读可关闭，只看泰文和声调规则</small></span>${sw('showRom')}</div>
         <div class="r"><span>连读时读例句<small>读完单词后接着读泰语例句</small></span>${sw('readEx')}</div>
         <div class="r"><span>连读时读中文意思<small>单词和例句的中文意思都读</small></span>${sw('zhRead')}</div>
