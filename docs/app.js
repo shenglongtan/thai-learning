@@ -20,18 +20,23 @@
     return /̀/.test(n) ? 'low' : /̂/.test(n) ? 'falling' : /́/.test(n) ? 'high' : /̌/.test(n) ? 'rising' : 'mid';
   };
   const curve = t => `<svg viewBox="0 0 54 26"><path d="${TONE[t].p}" stroke="${TONE[t].c}" stroke-width="3.6" fill="none" stroke-linecap="round"/><circle cx="6" cy="${TONE[t].y}" r="3.8" fill="${TONE[t].c}"/></svg>`;
-  const sylBoxes = (rom, cls = '') => `<div class="syls ${cls}">${rom.split('-').map(s => {
-    const t = toneOf(s), c = TONE[t].c;
-    return `<div class="syl" style="border-color:${c}"><b style="color:${c}">${s}</b>${curve(t)}<small style="color:${c}">${TONE[t].n}${TONE[t].m ? ' ' + TONE[t].m : ''}</small></div>`;
-  }).join('')}</div>`;
-  const colorRom = rom => rom.split(' ').map(wd => wd.split('-').map(s => `<span style="color:${TONE[toneOf(s)].c}">${s}</span>`).join('-')).join(' ');
+  const showRom = () => !!S.settings.showRom;
+  const sylBoxes = (w, cls = '') => {
+    const roms = w.rom.split('-');
+    return `<div class="syls ${cls}">${(w.tr || []).map((x, i) => {
+      const c = TONE[x.tone].c;
+      return `<div class="syl" style="border-color:${c}"><b class="thai" style="color:${c}">${x.t}</b>${showRom() ? `<em style="color:${c}">${roms[i] || ''}</em>` : ''}${curve(x.tone)}<small style="color:${c}">${TONE[x.tone].n}${TONE[x.tone].m ? ' ' + TONE[x.tone].m : ''}</small></div>`;
+    }).join('')}</div>`;
+  };
+  const toneSum = w => (w.tr || []).map(x => `<span style="color:${TONE[x.tone].c}">${TONE[x.tone].n}</span>`).join(' · ');
+  const colorRom = rom => !showRom() ? '' : rom.split(' ').map(wd => wd.split('-').map(s => `<span style="color:${TONE[toneOf(s)].c}">${s}</span>`).join('-')).join(' ');
   const ruleHtml = (w, light) => {
     const roms = w.rom.split('-');
     return `<div class="rules ${light ? 'lt' : ''}"><div class="rh">声调规则 <button class="lnk" data-a="go" data-v="#/rules">速查表 ›</button></div>${(w.tr || []).map((x, i) => {
       const c = TONE[x.tone].c, warn = x.calc && toneOf(roms[i] || '') !== x.tone;
       return `<div class="rl" style="border-color:${c}"><div class="rt"><b class="thai">${x.t}</b><span class="tn" style="background:${c}">${TONE[x.tone].n}</span></div>
         <div class="rd">${x.d.join(' · ')} <b style="color:${c}">→ ${TONE[x.tone].n}</b></div>
-        ${warn ? `<div class="rw">⚠ 罗马音标的是${TONE[toneOf(roms[i] || '')].n}，与规则推出的不一致，待核对</div>` : ''}</div>`;
+        ${warn ? `<div class="rw">⚠ 按规则读${TONE[x.tone].n}；但这个词口语里常读成${TONE[toneOf(roms[i] || '')].n}（多为外来词／例外），待核对</div>` : ''}</div>`;
     }).join('')}</div>`;
   };
   const PAL = ['#f5d547', '#7be3a6', '#8ad4f5', '#f5a58a', '#c4a6f5'];
@@ -43,14 +48,14 @@
       return `<span style="color:${col};${hl ? 'font-weight:800;text-decoration:underline;text-underline-offset:6px' : ''}">${s}</span>`;
     }).join('');
     return `<div class="exth thai">${th}<button class="spk sm" style="${light ? 'background:#0a6cff' : ''}" data-a="sayEx" data-v="${w.id}">🔊</button></div>
-      <div class="exrom">${colorRom(e.rom)}</div><div class="exzh">${e.zh}</div>`;
+      ${showRom() ? `<div class="exrom">${colorRom(e.rom)}</div>` : ''}<div class="exzh">${e.zh}</div>`;
   };
 
   /* ---------- 本地存储 ---------- */
   const KEY = 'thai.v1';
   const defaults = () => ({
     w: {}, days: [], today: { date: '', ids: [] },
-    settings: { daily: 10, reps: 3, rate: 1, auto: true, zhRead: true, unlockAll: false },
+    settings: { daily: 10, reps: 3, rate: 1, showRom: false, auto: true, zhRead: true, unlockAll: false },
     sleep: { dur: 30, cats: [], rand: false },
   });
   let S = (() => {
@@ -220,7 +225,7 @@
     return `${topbar(c.icon + ' ' + c.name)}<div class="page"><p style="color:var(--sub);margin:0 0 12px">${c.desc} · 已学 ${list.length - unseen.length}/${list.length}</p>
       <div class="row-btns"><button class="pill" data-a="studyCat" data-v="${id}">${unseen.length ? '学习新词（' + Math.min(unseen.length, S.settings.daily) + '）' : '重新过一遍'}</button>
       <button class="pill alt" data-a="go" data-v="#/auto/${id}">🎧 自动连读</button></div>
-      <div class="wlist">${list.map(w => `<button class="item" data-a="oneWord" data-v="${w.id}"><span class="th thai">${w.th}</span><span class="mid"><b>${w.zh}</b><span>${colorRom(w.rom)}</span></span><span class="dot ${dotCls(w.id)}"></span></button>`).join('')}</div></div>`;
+      <div class="wlist">${list.map(w => `<button class="item" data-a="oneWord" data-v="${w.id}"><span class="th thai">${w.th}</span><span class="mid"><b>${w.zh}</b><span>${showRom() ? colorRom(w.rom) : toneSum(w)}</span></span><span class="dot ${dotCls(w.id)}"></span></button>`).join('')}</div></div>`;
   }
 
   /* ---------- 页面：学习卡 ---------- */
@@ -243,8 +248,8 @@
       <div class="bar"><i style="width:${SES.i / SES.q.length * 100}%"></i></div>
       <div class="scard">
         <div class="big thai">${w.th}<button class="spk" data-a="sayWord" data-v="${w.id}">🔊</button></div>
-        <div class="rom">${w.rom}</div>
-        ${sylBoxes(w.rom)}
+        ${showRom() ? `<div class="rom">${w.rom}</div>` : ''}
+        ${sylBoxes(w)}
         ${ruleHtml(w, true)}
         ${w.note ? `<div class="note"><span>🎵</span><span>${w.note}</span></div>` : ''}
         <div class="zh">${w.zh}<button class="spk sm" style="margin-left:8px" data-a="sayZh" data-v="${w.id}">🔊</button></div>
@@ -260,7 +265,7 @@
     return `<div class="hero"><div class="row"><h1>复习</h1><span class="lv">★ Lv.${level()}</span></div></div>
       <div class="page"><div class="stat"><div><b>${due.length}</b><span>待复习</span></div><div><b>${all.length - mastered}</b><span>学习中</span></div><div><b>${mastered}</b><span>已掌握</span></div></div>
       <button class="pill" style="width:100%;margin-top:16px;padding:16px;font-size:18px;${due.length ? '' : 'opacity:.5'}" data-a="startReview">${due.length ? '开始复习（' + Math.min(due.length, 30) + '）' : '暂时没有要复习的词'}</button>
-      ${due.length ? `<div class="sec" style="font-size:18px">待复习的词</div><div class="wlist">${due.slice(0, 30).map(i => { const w = BY[i]; return `<button class="item" data-a="oneWord" data-v="${i}"><span class="th thai">${w.th}</span><span class="mid"><b>${w.zh}</b><span>${w.rom}</span></span><span class="dot ${dotCls(i)}"></span></button>`; }).join('')}</div>` : ''}</div>`;
+      ${due.length ? `<div class="sec" style="font-size:18px">待复习的词</div><div class="wlist">${due.slice(0, 30).map(i => { const w = BY[i]; return `<button class="item" data-a="oneWord" data-v="${i}"><span class="th thai">${w.th}</span><span class="mid"><b>${w.zh}</b><span>${showRom() ? w.rom : toneSum(w)}</span></span><span class="dot ${dotCls(i)}"></span></button>`; }).join('')}</div>` : ''}</div>`;
   }
 
   /* ---------- 页面：自动连读 ---------- */
@@ -274,8 +279,8 @@
       <label class="chk"><input type="checkbox" data-a="zhToggle" ${S.settings.zhRead ? 'checked' : ''}> 同时读中文意思</label>
       <div class="acard">
         <div class="tools"><button class="spkb" data-a="autoSay">🔊</button><button class="spd" data-a="autoSpeed">🐢 ${RATE()}×</button></div>
-        <div class="th2 thai">${w.th}</div><div class="zh2">${w.zh}</div><div class="rom2">${w.rom}</div>
-        ${sylBoxes(w.rom, 'lt')}
+        <div class="th2 thai">${w.th}</div><div class="zh2">${w.zh}</div>${showRom() ? `<div class="rom2">${w.rom}</div>` : ''}
+        ${sylBoxes(w, 'lt')}
         ${ruleHtml(w, true)}
         ${w.note ? `<div class="note" style="background:#fff;color:var(--text)"><span>🎵</span><span>${w.note}</span></div>` : ''}
         <div class="legend">${Object.values(TONE).map(t => `<span><i style="background:${t.c}"></i>${t.n}</span>`).join('')}</div>
@@ -332,7 +337,7 @@
       const left = SLP.endAt ? Math.max(0, Math.round((SLP.endAt - Date.now()) / 60000)) : null;
       setNow(`${w.th}　${w.zh}${left !== null ? '　· 剩余约 ' + left + ' 分钟' : ''}`);
       try {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: w.th + '  ' + w.rom, artist: w.zh, album: '泰语学习 · 陪睡模式' });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: showRom() ? w.th + '  ' + w.rom : w.th, artist: w.zh, album: '泰语学习 · 陪睡模式' });
         navigator.mediaSession.playbackState = 'playing';
       } catch (e) { /* 无媒体会话 */ }
       await playOne('th', w.id, w.th, 'th-TH', 0.9 * RATE(), tok); if (tok !== playToken) return;
@@ -394,6 +399,7 @@
         <div class="r col"><span>发音语速<small>单词、例句、连读、陪睡模式都按这个速度（倍速）</small></span>${seg('rate', RATES)}</div>
         <button class="r" style="width:100%;background:none" data-a="go" data-v="#/rules"><span>声调规则速查表</span><span>›</span></button>
         <div class="r"><span>学习卡自动发音</span>${sw('auto')}</div>
+        <div class="r"><span>显示罗马音<small>已会泰语拼读可关闭，只看泰文和声调规则</small></span>${sw('showRom')}</div>
         <div class="r"><span>连读时读中文</span>${sw('zhRead')}</div>
         <div class="r"><span>解锁全部分类<small>关闭时需学完上一分类 50%</small></span>${sw('unlockAll')}</div>
       </div>
