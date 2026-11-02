@@ -17,6 +17,9 @@ import importlib
 源 = 根 / "data" / "源词库.txt"
 输出 = 根 / "docs" / "data" / "words.json"
 
+# 女性用语：整词等于这些词时用女声，其余默认男声（男性用语 ครับ、ผม 本来就是男声）
+女声词 = {"ค่ะ", "คะ", "ดิฉัน", "ฉัน"}
+
 调符 = {"\u0300": "low", "\u0302": "falling", "\u0301": "high", "\u030c": "rising"}
 
 
@@ -100,7 +103,7 @@ def 主函数():
                 break
         if 高亮 is None:
             print(f"提示：第{行号}行例句里没有单独出现目标词：{泰文}")
-        词.append({
+        词条 = {
             "id": 编号("w", 泰文),
             "cat": 分类[-1]["id"],
             "th": 泰文,
@@ -116,7 +119,12 @@ def 主函数():
                 "zs": 中文段,
                 "hl": 高亮,
             },
-        })
+        }
+        if 泰文 in 女声词:
+            词条["g"] = "f"
+        if any(s in 女声词 for s in 段):
+            词条["ex"]["g"] = "f"
+        词.append(词条)
     ids = [w["id"] for w in 词]
     if len(ids) != len(set(ids)):
         错误.append("编号冲突")
