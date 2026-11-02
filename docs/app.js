@@ -272,7 +272,7 @@
     return `<div class="fit"><div class="study-top"><button class="back" data-a="back" data-v="#/today">‹</button><h2>${SES.title} ${Math.min(SES.i + 1, SES.total)}/${SES.total}</h2><button class="spdm" data-a="studySpeed" title="发音语速">🐢 ${RATE()}×</button></div>
       <div class="bar"><i style="width:${SES.i / SES.q.length * 100}%"></i></div>
       <div class="scard">
-        <div class="big thai">${w.th}<button class="spk" data-a="sayWord" data-v="${w.id}">🔊</button></div>
+        <div class="big thai" ${w.th.length > 9 ? `style="font-size:${w.th.length > 14 ? 24 : 30}px"` : ''}>${w.th}<button class="spk" data-a="sayWord" data-v="${w.id}">🔊</button></div>
         ${showRom() ? `<div class="rom">${w.rom}</div>` : ''}
         ${sylBoxes(w)}
         ${ruleHtml(w, true)}
@@ -304,7 +304,7 @@
       <div class="chks"><label class="chk"><input type="checkbox" data-a="exToggle" ${S.settings.readEx ? 'checked' : ''}> 读例句</label><label class="chk"><input type="checkbox" data-a="zhToggle" ${S.settings.zhRead ? 'checked' : ''}> 读中文意思</label></div>
       <div class="acard">
         <div class="tools"><button class="spkb" data-a="autoSay">🔊</button><button class="spd" data-a="autoSpeed">🐢 ${RATE()}×</button></div>
-        <div class="th2 thai">${w.th}</div><div class="zh2">${w.zh}</div>${showRom() ? `<div class="rom2">${w.rom}</div>` : ''}
+        <div class="th2 thai" ${w.th.length > 9 ? `style="font-size:${w.th.length > 14 ? 24 : 28}px"` : ''}>${w.th}</div><div class="zh2">${w.zh}</div>${showRom() ? `<div class="rom2">${w.rom}</div>` : ''}
         ${sylBoxes(w, 'lt')}
         ${ruleHtml(w, true)}
         ${w.note ? `<div class="note" style="background:#fff;color:var(--text)"><span>🎵</span><span>${w.note}</span></div>` : ''}
