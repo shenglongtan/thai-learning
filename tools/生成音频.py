@@ -4,6 +4,7 @@
 """
 import asyncio
 import json
+import re
 from pathlib import Path
 
 import edge_tts
@@ -31,6 +32,8 @@ def 任务列表():
         例女 = w["ex"].get("g") == "f"
         yield "th", w["id"], w["th"], 声["th", "f" if 女 else "m"]
         yield "ex", w["ex"]["id"], "".join(w["ex"]["seg"]), 声["th", "f" if 例女 else "m"]
+        # 例句的中文翻译（去掉括号里的"男士说"之类提示），自动连读可选读出
+        yield "ezh", w["ex"]["id"], re.sub(r"（[^）]*）", "", w["ex"]["zh"]), 声["zh", "f" if 例女 else "m"]
         yield "zh", "z" + w["id"][1:], w["zh"].split("（")[0].replace("/", "，"), 声["zh", "f" if 女 else "m"]
 
 

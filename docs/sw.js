@@ -1,5 +1,5 @@
 // 离线缓存：界面与词库先缓存；音频边听边缓存（要处理 iOS 的 Range 请求）
-const VER = 'thai-v9';
+const VER = 'thai-v10';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'data/words.json', 'icon-180.png', 'icon-192.png', 'audio/silence.mp3'];
 
 self.addEventListener('install', e => {
