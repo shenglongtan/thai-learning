@@ -55,7 +55,7 @@
   const KEY = 'thai.v1';
   const defaults = () => ({
     w: {}, days: [], today: { date: '', ids: [] },
-    settings: { daily: 10, reps: 3, rate: 1, showRom: false, auto: true, zhRead: true, exRead: false, exZhRead: false, unlockAll: false },
+    settings: { daily: 10, reps: 3, rate: 1, showRom: false, auto: true, zhRead: true, readEx: true, unlockAll: false },
     sleep: { dur: 30, cats: [], rand: false },
   });
   let S = (() => {
@@ -275,8 +275,8 @@
     if (!AUTO || AUTO.cat !== id) AUTO = { cat: id, list: catWords(id), i: 0, playing: false };
     const A = AUTO, w = A.list[A.i];
     return `<div class="fit lightfit"><div class="light-top"><button class="back" data-a="back" data-v="#/cat/${id}">‹ 返回</button><div class="pg"><i style="width:${(A.i + 1) / A.list.length * 100}%"></i></div><span class="ct">${A.i + 1} / ${A.list.length}</span></div>
-      <button class="autoplay" data-a="autoToggle">${A.playing ? '⏸ 暂停连读' : '▶ 自动连读：每个词 泰语' + S.settings.reps + '遍' + (S.settings.zhRead ? ' + 中文' : '') + (S.settings.exRead ? ' + 例句' : '') + (S.settings.exZhRead ? ' + 例句中文' : '')}</button>
-      <label class="chk"><input type="checkbox" data-a="zhToggle" ${S.settings.zhRead ? 'checked' : ''}> 同时读中文意思</label>
+      <button class="autoplay" data-a="autoToggle">${A.playing ? '⏸ 暂停连读' : '▶ 自动连读：每个词 泰语' + S.settings.reps + '遍' + (S.settings.readEx ? ' + 例句' : '') + (S.settings.zhRead ? ' + 中文意思' : '')}</button>
+      <div class="chks"><label class="chk"><input type="checkbox" data-a="exToggle" ${S.settings.readEx ? 'checked' : ''}> 读例句</label><label class="chk"><input type="checkbox" data-a="zhToggle" ${S.settings.zhRead ? 'checked' : ''}> 读中文意思</label></div>
       <div class="acard">
         <div class="tools"><button class="spkb" data-a="autoSay">🔊</button><button class="spd" data-a="autoSpeed">🐢 ${RATE()}×</button></div>
         <div class="th2 thai">${w.th}</div><div class="zh2">${w.zh}</div>${showRom() ? `<div class="rom2">${w.rom}</div>` : ''}
@@ -298,11 +298,13 @@
         if (tok !== playToken) return;
         await gap(500, tok);
       }
-      if (S.settings.zhRead) { await playOne('zh', zId(w), zText(w), 'zh-CN', RATE(), tok); await gap(600, tok); }
+      if (S.settings.readEx) { await playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', RATE(), tok); await gap(600, tok); }
       if (tok !== playToken) return;
-      if (S.settings.exRead) { await playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', RATE(), tok); await gap(600, tok); }
-      if (tok !== playToken) return;
-      if (S.settings.exZhRead) { await playOne('ezh', w.ex.id, w.ex.zh.replace(/（[^）]*）/g, ''), 'zh-CN', RATE(), tok); await gap(600, tok); }
+      if (S.settings.zhRead) {
+        await playOne('zh', zId(w), zText(w), 'zh-CN', RATE(), tok); await gap(500, tok);
+        if (tok !== playToken) return;
+        if (S.settings.readEx) { await playOne('ezh', w.ex.id, w.ex.zh.replace(/（[^）]*）/g, ''), 'zh-CN', RATE(), tok); await gap(600, tok); }
+      }
       if (tok !== playToken) return;
       if (AUTO.i < AUTO.list.length - 1) { AUTO.i++; render(); } else { AUTO.playing = false; render(); return; }
     }
@@ -403,9 +405,8 @@
         <button class="r" style="width:100%;background:none" data-a="go" data-v="#/rules"><span>声调规则速查表</span><span>›</span></button>
         <div class="r"><span>学习卡自动发音</span>${sw('auto')}</div>
         <div class="r"><span>显示罗马音<small>已会泰语拼读可关闭，只看泰文和声调规则</small></span>${sw('showRom')}</div>
-        <div class="r"><span>连读时读中文</span>${sw('zhRead')}</div>
-        <div class="r"><span>连读时读例句<small>读完单词后再读一遍泰语例句</small></span>${sw('exRead')}</div>
-        <div class="r"><span>连读时读例句的中文<small>例句读完后读它的中文翻译</small></span>${sw('exZhRead')}</div>
+        <div class="r"><span>连读时读例句<small>读完单词后接着读泰语例句</small></span>${sw('readEx')}</div>
+        <div class="r"><span>连读时读中文意思<small>单词和例句的中文意思都读</small></span>${sw('zhRead')}</div>
         <div class="r"><span>解锁全部分类<small>关闭时需学完上一分类 50%</small></span>${sw('unlockAll')}</div>
       </div>
       <div class="setl">
@@ -465,6 +466,7 @@
       SES.i++; stopAudio(); render(); window.scrollTo(0, 0);
     },
     autoToggle: () => { AUTO.playing = !AUTO.playing; if (AUTO.playing) { render(); autoLoop(); } else { stopAudio(); render(); } },
+    exToggle: () => { S.settings.readEx = !S.settings.readEx; save(); render(); },
     zhToggle: () => { S.settings.zhRead = !S.settings.zhRead; save(); render(); },
     autoSay: () => { AUTO.playing = false; sayWord(AUTO.list[AUTO.i]); render(); },
     autoSpeed: () => { S.settings.rate = RATES[(RATES.indexOf(RATE()) + 1) % RATES.length]; save(); render(); },
