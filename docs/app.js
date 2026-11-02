@@ -55,7 +55,7 @@
   const KEY = 'thai.v1';
   const defaults = () => ({
     w: {}, days: [], today: { date: '', ids: [] },
-    settings: { ver: 2, daily: 10, reps: 1, rate: 1, showRom: false, auto: true, zhRead: true, readEx: true, chain: true, unlockAll: false },
+    settings: { ver: 2, daily: 10, reps: 1, rate: 1, showRom: false, auto: true, zhRead: true, readEx: true, chain: true },
     sleep: { dur: 30, cats: [], rand: false },
   });
   let S = (() => {
@@ -71,7 +71,6 @@
   const catWords = id => WORDS.filter(w => w.cat === id);
   const learnedIn = id => catWords(id).filter(w => seen(w.id)).length;
   const learnedAll = () => WORDS.filter(w => seen(w.id)).length;
-  const unlocked = ci => S.settings.unlockAll || ci === 0 || learnedIn(CATS[ci - 1].id) / catWords(CATS[ci - 1].id).length >= 0.5;
   const level = () => 1 + Math.floor(learnedAll() / 25);
   const dueIds = () => WORDS.filter(w => S.w[w.id] && S.w[w.id].due <= Date.now()).map(w => w.id);
 
@@ -92,8 +91,7 @@
   function setBox(id, box) { S.w[id] = { box, due: Date.now() + (box === 0 ? 10 * 60e3 : INT[box] * DAY) }; markActive(); save(); }
   function pickNew(n, skip = []) {
     const out = [];
-    CATS.forEach((c, ci) => {
-      if (!unlocked(ci)) return;
+    CATS.forEach(c => {
       catWords(c.id).forEach(w => { if (out.length < n && !seen(w.id) && !skip.includes(w.id)) out.push(w.id); });
     });
     return out;
@@ -237,17 +235,14 @@
 
   /* ---------- 页面：分类 ---------- */
   function cats() {
-    const card = (c, ci) => {
-      const tot = catWords(c.id).length, n = learnedIn(c.id), ok = unlocked(ci);
-      return `<button class="cat ${n === tot ? 'done' : ''} ${ok ? '' : 'lock'}" data-a="${ok ? 'go' : 'locked'}" data-v="${ok ? '#/cat/' + c.id : ci}">
-        ${ok ? '' : '<span class="lk">🔒</span>'}<div class="rg" style="--p:${Math.round(n / tot * 100)}"><div>${c.icon}</div></div>
+    const card = c => {
+      const tot = catWords(c.id).length, n = learnedIn(c.id);
+      return `<button class="cat ${n === tot ? 'done' : ''}" data-a="go" data-v="#/cat/${c.id}">
+        <div class="rg" style="--p:${Math.round(n / tot * 100)}"><div>${c.icon}</div></div>
         <b>${c.name}</b><span>${n === tot ? '全部掌握！' : '已学 ' + n + '/' + tot}</span></button>`;
     };
-    const open = CATS.map((c, i) => unlocked(i) ? card(c, i) : '').join('');
-    const lock = CATS.map((c, i) => unlocked(i) ? '' : card(c, i)).join('');
     return `<div class="hero"><div class="row"><h1>泰语学习</h1><span class="lv">★ Lv.${level()}</span></div></div>
-      <div class="page"><div class="sec"><i>🔓</i>已解锁分类</div><div class="grid">${open}</div>
-      ${lock ? `<div class="sec"><i>🔥</i>入门必备</div><div class="grid">${lock}</div>` : ''}</div>`;
+      <div class="page"><div class="sec"><i>📚</i>全部分类</div><div class="grid">${CATS.map(card).join('')}</div></div>`;
   }
   function catPage(id) {
     const c = CBY[id]; if (!c) return home();
@@ -431,7 +426,6 @@
         <div class="r"><span>显示罗马音<small>已会泰语拼读可关闭，只看泰文和声调规则</small></span>${sw('showRom')}</div>
         <div class="r"><span>连读时读例句<small>读完单词（和它的中文）后，接着读泰语例句</small></span>${sw('readEx')}</div>
         <div class="r"><span>连读时读中文意思<small>读完单词后读它的中文，读完例句后读例句的中文</small></span>${sw('zhRead')}</div>
-        <div class="r"><span>解锁全部分类<small>关闭时需学完上一分类 50%</small></span>${sw('unlockAll')}</div>
       </div>
       <div class="setl">
         <button class="r" style="width:100%;background:none" data-a="export"><span>导出学习进度（备份）</span><span>›</span></button>
@@ -474,7 +468,6 @@
   const ACT = {
     go: v => go(v),
     back: v => go(v),
-    locked: v => toast(`先学完「${CATS[v - 1].name}」的一半就能解锁`),
     startToday: () => startSession(S.today.ids.filter(i => !seen(i)), '今日学习'),
     moreToday: () => { S.today.ids = S.today.ids.concat(pickNew(S.settings.daily, S.today.ids)); save(); startSession(S.today.ids.filter(i => !seen(i)), '今日学习'); },
     studyCat: v => { const un = catWords(v).filter(w => !seen(w.id)).map(w => w.id); startSession((un.length ? un.slice(0, S.settings.daily) : catWords(v).map(w => w.id)), CBY[v].name); },
