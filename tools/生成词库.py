@@ -2,6 +2,7 @@
 用法：python tools/生成词库.py
 """
 import hashlib
+import re
 import json
 import sys
 import unicodedata
@@ -65,6 +66,24 @@ def 主函数():
             错误.append(f"第{行号}行重复：{泰文}")
         见过.add(泰文)
         段 = 分词.split("|")
+        # 例句中文里的 {词序号:中文} 把中文片段对应到例句第几个词（序号从 0 开始）
+        中文段 = []
+        用过 = set()
+        位置 = 0
+        for m in re.finditer(r"\{(\d+):([^}]*)\}", 例中文):
+            if m.start() > 位置:
+                中文段.append({"t": 例中文[位置:m.start()]})
+            序号 = int(m.group(1))
+            if 序号 >= len(段) or 序号 in 用过:
+                错误.append(f"第{行号}行例句中文标注序号不对：{泰文} {{{序号}:…}}")
+            用过.add(序号)
+            中文段.append({"i": 序号, "t": m.group(2)})
+            位置 = m.end()
+        if 位置 < len(例中文):
+            中文段.append({"t": 例中文[位置:]})
+        例中文 = "".join(x["t"] for x in 中文段)
+        if len(用过) < len(段) - 3:
+            错误.append(f"第{行号}行例句中文标注太少：{泰文}")
         例泰文 = "".join(段)
         if len(段) != len(例罗马.split(" ")):
             错误.append(f"第{行号}行例句分词数与罗马音词数不一致：{泰文}")
@@ -94,6 +113,7 @@ def 主函数():
                 "seg": 段,
                 "rom": 例罗马,
                 "zh": 例中文,
+                "zs": 中文段,
                 "hl": 高亮,
             },
         })

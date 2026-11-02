@@ -39,16 +39,18 @@
         ${warn ? `<div class="rw">⚠ 按规则读第${TONE[x.tone].no}声（${TONE[x.tone].n}）；但这个词口语里常读成第${TONE[toneOf(roms[i] || '')].no}声（${TONE[toneOf(roms[i] || '')].n}）（多为外来词／例外），待核对</div>` : ''}</div>`;
     }).join('')}</div>`;
   };
-  const PAL = ['#f5d547', '#7be3a6', '#8ad4f5', '#f5a58a', '#c4a6f5'];
+  // 例句里每个词一种颜色，对应的中文用同一种颜色（深色卡片用亮色，白底用深色）
+  const PAL = ['#f5d547', '#7be3a6', '#8ad4f5', '#f5a58a', '#c4a6f5', '#f58ac8', '#b8e65c', '#fdba74'];
+  const LPAL = ['#d97706', '#0f9d58', '#2563eb', '#dc2626', '#9333ea', '#db2777', '#4d7c0f', '#0891b2'];
   const exHtml = (w, light) => {
-    const e = w.ex;
+    const e = w.ex, pal = light ? LPAL : PAL, col = i => pal[i % pal.length];
     const th = e.seg.map((s, i) => {
       const hl = e.hl && i >= e.hl[0] && i < e.hl[1];
-      const col = light ? (hl ? '#b8860b' : '#1a2438') : (hl ? '#d4a843' : PAL[i % PAL.length]);
-      return `<span style="color:${col};${hl ? 'font-weight:800;text-decoration:underline;text-underline-offset:6px' : ''}">${s}</span>`;
+      return `<span class="cw ${hl ? 'hl' : ''}" style="color:${col(i)};border-color:${col(i)}">${s}</span>`;
     }).join('');
+    const zh = (e.zs || [{ t: e.zh }]).map(x => x.i === undefined ? x.t : `<span class="cz" style="color:${col(x.i)};border-color:${col(x.i)}">${x.t}</span>`).join('');
     return `<div class="exth thai">${th}<button class="spk sm" style="${light ? 'background:#0a6cff' : ''}" data-a="sayEx" data-v="${w.id}">🔊</button></div>
-      ${showRom() ? `<div class="exrom">${colorRom(e.rom)}</div>` : ''}<div class="exzh">${e.zh}</div>`;
+      ${showRom() ? `<div class="exrom">${colorRom(e.rom)}</div>` : ''}<div class="exzh ${light ? 'lt' : ''}">${zh}</div>`;
   };
 
   /* ---------- 本地存储 ---------- */
