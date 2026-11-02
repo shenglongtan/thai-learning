@@ -3,7 +3,7 @@
 - 用户谭胜龙，用中文沟通。本仓库是公开仓库：**不放任何证件、账号、公司资料、个人信息**。
 - 网站文件在 `docs/`（GitHub Pages 从这里发布，推送到 main 后约 1 分钟自动更新，网址 https://shenglongtan.github.io/thai-learning/ ）。
 - 改词库只改 `data/源词库.txt`，然后运行 `python tools/生成词库.py`；新词追加在分类末尾，不改已有词的泰文（编号由泰文生成，改了会丢进度）。
-- 新词的发音：`PYTHONUTF8=1 python tools/生成音频.py`（需要联网，edge-tts，已有文件会跳过，偶尔失败重跑即可）。
+- 新词的发音：`PYTHONUTF8=1 python tools/生成音频.py`（需要联网，edge-tts，已有文件会跳过，偶尔失败重跑即可）。生成完再运行 `python tools/处理音频.py`（需要 ffmpeg，统一音量、去开头静音、加渐入渐出，处理过的会自动跳过），否则新词的声音会比别的大小不一。
 - 改了 `docs/` 里的文件后，要把 `docs/sw.js` 里的 `VER` 加 1（例如 thai-v2），否则手机会继续用旧缓存。
 - 词库是起草稿，罗马音和声调有疑问的词在回复里列出来问，不要自作主张。
 - 功能清单与未做事项见 `README.md`；整体方案见 `方案.md`。

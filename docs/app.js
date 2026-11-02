@@ -109,7 +109,7 @@
   const RATES = [0.5, 0.8, 1, 1.2, 1.5];
   const RATE = () => (RATES.includes(S.settings.rate) ? S.settings.rate : 1);
   let playToken = 0, pending = null;
-  const zText = w => w.zh.split('（')[0].replace('/', '，');
+  const zText = w => (w.zh.split('（')[0] || w.zh.replace(/[（）]/g, '')).replace('/', '，');
   const zId = w => 'z' + w.id.slice(1);
   function stopAudio() {
     playToken++;
@@ -148,19 +148,28 @@
   const sayEx = w => { stopAudio(); return playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', RATE(), playToken); };
   const sayZh = w => { stopAudio(); return playOne('zh', zId(w), zText(w), 'zh-CN', RATE(), playToken); };
   // 一个词的连读顺序：单词（reps 遍）→ 单词的中文 → 例句 → 例句的中文（中文只在“读中文意思”开启时读，例句只在 withEx 时读）
+  // 停顿随语速伸缩；下一段音频提前下载好，切换时不会卡顿
+  const pause = (ms, tok) => gap(ms * Math.min(1.6, Math.max(0.7, 1 / RATE())), tok);
+  const warm = u => { try { fetch(u).catch(() => {}); } catch (e) { /* 忽略 */ } };
   async function playChain(w, tok, reps, withEx) {
     const zh = S.settings.zhRead, r = RATE();
+    setTimeout(() => {
+      if (zh) warm(`audio/zh/${zId(w)}.mp3`);
+      if (withEx) { warm(`audio/ex/${w.ex.id}.mp3`); if (zh) warm(`audio/ezh/${w.ex.id}.mp3`); }
+    }, 400);
     for (let k = 0; k < reps; k++) {
       await playOne('th', w.id, w.th, 'th-TH', r, tok);
       if (tok !== playToken) return;
-      await gap(k < reps - 1 ? 500 : 400, tok);
+      if (k < reps - 1) await pause(650, tok);
     }
     if (tok !== playToken) return;
-    if (zh) { await playOne('zh', zId(w), zText(w), 'zh-CN', r, tok); if (tok !== playToken) return; await gap(500, tok); }
-    if (tok !== playToken || !withEx) return;
+    if (zh) { await pause(450, tok); if (tok !== playToken) return; await playOne('zh', zId(w), zText(w), 'zh-CN', r, tok); if (tok !== playToken) return; }
+    if (!withEx) return;
+    await pause(zh ? 750 : 650, tok);
+    if (tok !== playToken) return;
     await playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', r, tok);
     if (tok !== playToken) return;
-    if (zh) { await gap(500, tok); if (tok !== playToken) return; await playOne('ezh', w.ex.id, w.ex.zh.replace(/（[^）]*）/g, ''), 'zh-CN', r, tok); }
+    if (zh) { await pause(450, tok); if (tok !== playToken) return; await playOne('ezh', w.ex.id, w.ex.zh.replace(/（[^）]*）/g, ''), 'zh-CN', r, tok); }
   }
   // 学习卡自动发音
   function studyPlay(w) {
@@ -314,9 +323,11 @@
     const tok = playToken;
     while (tok === playToken && AUTO && AUTO.playing) {
       const w = AUTO.list[AUTO.i];
+      const nx = AUTO.list[AUTO.i + 1];
+      if (nx) warm(`audio/th/${nx.id}.mp3`);
       await playChain(w, tok, S.settings.reps, S.settings.readEx);
       if (tok !== playToken) return;
-      await gap(300, tok);
+      await pause(1000, tok);
       if (tok !== playToken) return;
       if (AUTO.i < AUTO.list.length - 1) { AUTO.i++; render(); } else { AUTO.playing = false; render(); return; }
     }
