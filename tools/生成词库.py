@@ -4,16 +4,26 @@
 import hashlib
 import json
 import sys
+import unicodedata
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import importlib
+
+声调规则 = importlib.import_module("声调规则")
 
 根 = Path(__file__).resolve().parent.parent
 源 = 根 / "data" / "源词库.txt"
 输出 = 根 / "docs" / "data" / "words.json"
 
-声调说明 = {
-    "H": "「ห」是引导字：不发音，但让后面的低辅音按高辅音规则定调。",
-    "A": "「อ」是引导字：不发音，但让后面的「ย」按中辅音规则定调。",
-}
+调符 = {"\u0300": "low", "\u0302": "falling", "\u0301": "high", "\u030c": "rising"}
+
+
+def 罗马声调(音节):
+    for ch in unicodedata.normalize("NFD", 音节):
+        if ch in 调符:
+            return 调符[ch]
+    return "mid"
 
 
 def 编号(前缀, 文本):
@@ -25,6 +35,7 @@ def 主函数():
     词 = []
     错误 = []
     见过 = set()
+    待核对 = []
     for 行号, 行 in enumerate(源.read_text(encoding="utf-8").splitlines(), 1):
         行 = 行.strip()
         if not 行 or 行.startswith("# "):
@@ -33,10 +44,23 @@ def 主函数():
         if 列[0] == "@cat":
             分类.append({"id": 列[1], "name": 列[2], "icon": 列[3], "desc": 列[4]})
             continue
-        if len(列) != 7:
+        if len(列) not in (7, 8):
             错误.append(f"第{行号}行列数不对：{行[:30]}")
             continue
-        泰文, 罗马, 中文, 分词, 例罗马, 例中文, 代码 = 列
+        泰文, 罗马, 中文, 分词, 例罗马, 例中文, 说明 = 列[:7]
+        切分 = 列[7].split("|") if len(列) == 8 and 列[7] else [泰文]
+        罗音节 = 罗马.split("-")
+        if len(切分) != len(罗音节):
+            错误.append(f"第{行号}行读音切分数({len(切分)})与罗马音音节数({len(罗音节)})不一致：{泰文}")
+            continue
+        规则 = []
+        for 泰音, 罗音 in zip(切分, 罗音节):
+            a = 声调规则.分析(泰音)
+            条 = {"t": 泰音, "tone": a["tone"], "d": 声调规则.规则文字(a)}
+            if a["tone"] != 罗马声调(罗音):
+                条["calc"] = a["tone"]
+                待核对.append(f"{泰文} 第{切分.index(泰音) + 1}音节「{泰音}」 罗马音 {罗音}（{罗马声调(罗音)}）≠ 按规则 {a['tone']}")
+            规则.append(条)
         if 泰文 in 见过:
             错误.append(f"第{行号}行重复：{泰文}")
         见过.add(泰文)
@@ -63,7 +87,8 @@ def 主函数():
             "th": 泰文,
             "rom": 罗马,
             "zh": 中文,
-            "note": 声调说明.get(代码, ""),
+            "note": 说明,
+            "tr": 规则,
             "ex": {
                 "id": 编号("e", 例泰文),
                 "seg": 段,
@@ -75,6 +100,9 @@ def 主函数():
     ids = [w["id"] for w in 词]
     if len(ids) != len(set(ids)):
         错误.append("编号冲突")
+    if 待核对:
+        print(f"\n罗马音声调与泰文规则不一致，共 {len(待核对)} 处，请核对：")
+        print("\n".join(待核对))
     if 错误:
         print("\n".join(错误))
         sys.exit(1)

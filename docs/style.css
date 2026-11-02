@@ -170,3 +170,25 @@ body.dark{background:var(--cream)}
 .danger{color:#c0392b}
 .stat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
 .stat div{background:#fff;border-radius:18px;padding:14px 8px;text-align:center}.stat b{font-size:26px;display:block}.stat span{font-size:13px;color:var(--sub)}
+
+/* 声调规则 */
+.rules{background:#fff;color:var(--text);border-radius:16px;padding:10px 12px;margin:10px 0;text-align:left}
+.rules .rh{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px;margin-bottom:6px}
+.lnk{background:none;color:#0a6cff;font-size:14px;padding:2px 4px}
+.rules .rl{border-left:4px solid;padding:4px 0 4px 10px;margin:8px 0}
+.rules .rt{display:flex;align-items:center;gap:8px}
+.rules .rt b{font-size:22px}
+.rules .tn{color:#fff;border-radius:10px;padding:1px 8px;font-size:12px;font-weight:700}
+.rules .rd{font-size:14px;line-height:1.6;color:#33405a;margin-top:2px}
+.rules .rw{font-size:13px;color:#c2410c;background:#fff4e5;border-radius:8px;padding:4px 8px;margin-top:4px}
+.spdm{background:rgba(255,255,255,.14);color:#fff;border-radius:16px;padding:6px 10px;font-size:14px;font-weight:700;white-space:nowrap}
+.setl .r.col{flex-wrap:wrap}.setl .r.col .seg{width:100%;justify-content:space-between}.setl .r.col .seg button{flex:1;padding:9px 0}
+.rulepg .rc{background:#fff;border-radius:18px;padding:14px 16px;margin-bottom:12px}
+.rulepg h3{margin:0 0 8px;font-size:18px}
+.rulepg p{margin:6px 0;line-height:1.7;font-size:15px}.rulepg p.sm{font-size:13px;color:var(--sub)}
+.rulepg .cvs{display:flex;gap:6px;justify-content:space-between}
+.rulepg .cv{flex:1;border:2px solid;border-radius:12px;text-align:center;padding:4px 0}
+.rulepg .cv svg{width:44px;height:22px}.rulepg .cv b{display:block;font-size:14px}.rulepg .cv small{color:var(--sub);font-size:12px}
+.rulepg .tt{width:100%;border-collapse:collapse;text-align:center;font-size:14px}
+.rulepg .tt th,.rulepg .tt td{border:1px solid var(--line);padding:7px 2px;font-weight:700}
+.rulepg .tt th{background:#faf6ec;font-size:13px}

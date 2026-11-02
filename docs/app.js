@@ -25,6 +25,15 @@
     return `<div class="syl" style="border-color:${c}"><b style="color:${c}">${s}</b>${curve(t)}<small style="color:${c}">${TONE[t].n}${TONE[t].m ? ' ' + TONE[t].m : ''}</small></div>`;
   }).join('')}</div>`;
   const colorRom = rom => rom.split(' ').map(wd => wd.split('-').map(s => `<span style="color:${TONE[toneOf(s)].c}">${s}</span>`).join('-')).join(' ');
+  const ruleHtml = (w, light) => {
+    const roms = w.rom.split('-');
+    return `<div class="rules ${light ? 'lt' : ''}"><div class="rh">声调规则 <button class="lnk" data-a="go" data-v="#/rules">速查表 ›</button></div>${(w.tr || []).map((x, i) => {
+      const c = TONE[x.tone].c, warn = x.calc && toneOf(roms[i] || '') !== x.tone;
+      return `<div class="rl" style="border-color:${c}"><div class="rt"><b class="thai">${x.t}</b><span class="tn" style="background:${c}">${TONE[x.tone].n}</span></div>
+        <div class="rd">${x.d.join(' · ')} <b style="color:${c}">→ ${TONE[x.tone].n}</b></div>
+        ${warn ? `<div class="rw">⚠ 罗马音标的是${TONE[toneOf(roms[i] || '')].n}，与规则推出的不一致，待核对</div>` : ''}</div>`;
+    }).join('')}</div>`;
+  };
   const PAL = ['#f5d547', '#7be3a6', '#8ad4f5', '#f5a58a', '#c4a6f5'];
   const exHtml = (w, light) => {
     const e = w.ex;
@@ -41,7 +50,7 @@
   const KEY = 'thai.v1';
   const defaults = () => ({
     w: {}, days: [], today: { date: '', ids: [] },
-    settings: { daily: 10, reps: 3, speed: 0.8, auto: true, zhRead: true, unlockAll: false },
+    settings: { daily: 10, reps: 3, rate: 1, auto: true, zhRead: true, unlockAll: false },
     sleep: { dur: 30, cats: [], rand: false },
   });
   let S = (() => {
@@ -90,6 +99,9 @@
   /* ---------- 发音 ---------- */
   const AU = new Audio();
   AU.preload = 'auto';
+  AU.preservesPitch = AU.webkitPreservesPitch = true; // 变速不变调
+  const RATES = [0.5, 0.8, 1, 1.2, 1.5];
+  const RATE = () => (RATES.includes(S.settings.rate) ? S.settings.rate : 1);
   let playToken = 0, pending = null;
   const zText = w => w.zh.split('（')[0].replace('/', '，');
   const zId = w => 'z' + w.id.slice(1);
@@ -126,9 +138,9 @@
       if (p && p.catch) p.catch(fall);
     });
   }
-  const sayWord = (w, rate = 1) => { stopAudio(); return playOne('th', w.id, w.th, 'th-TH', rate, playToken); };
-  const sayEx = w => { stopAudio(); return playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', 1, playToken); };
-  const sayZh = w => { stopAudio(); return playOne('zh', zId(w), zText(w), 'zh-CN', 1, playToken); };
+  const sayWord = (w, rate = RATE()) => { stopAudio(); return playOne('th', w.id, w.th, 'th-TH', rate, playToken); };
+  const sayEx = w => { stopAudio(); return playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', RATE(), playToken); };
+  const sayZh = w => { stopAudio(); return playOne('zh', zId(w), zText(w), 'zh-CN', RATE(), playToken); };
   // 间隔：陪睡模式用静音音频撑住，防止锁屏后系统挂起页面
   function gap(ms, tok, keep) {
     if (!keep) return new Promise(r => setTimeout(r, ms));
@@ -226,13 +238,14 @@
         <button class="pill" style="max-width:260px;margin:20px auto 0;display:block;width:100%" data-a="go" data-v="#/today">回首页</button></div>`;
     }
     const w = BY[SES.q[SES.i]];
-    if (S.settings.auto) setTimeout(() => sayWord(w, 1), 200);
-    return `<div class="study-top"><button class="back" data-a="back" data-v="#/today">‹</button><h2>${SES.title} ${Math.min(SES.i + 1, SES.total)}/${SES.total}</h2><span style="width:36px"></span></div>
+    if (S.settings.auto) setTimeout(() => sayWord(w), 200);
+    return `<div class="study-top"><button class="back" data-a="back" data-v="#/today">‹</button><h2>${SES.title} ${Math.min(SES.i + 1, SES.total)}/${SES.total}</h2><button class="spdm" data-a="studySpeed" title="发音语速">🐢 ${RATE()}×</button></div>
       <div class="bar"><i style="width:${SES.i / SES.q.length * 100}%"></i></div>
       <div class="scard">
         <div class="big thai">${w.th}<button class="spk" data-a="sayWord" data-v="${w.id}">🔊</button></div>
         <div class="rom">${w.rom}</div>
         ${sylBoxes(w.rom)}
+        ${ruleHtml(w, true)}
         ${w.note ? `<div class="note"><span>🎵</span><span>${w.note}</span></div>` : ''}
         <div class="zh">${w.zh}<button class="spk sm" style="margin-left:8px" data-a="sayZh" data-v="${w.id}">🔊</button></div>
         <div class="exbox">${exHtml(w, false)}</div>
@@ -254,15 +267,16 @@
   let AUTO = null;
   function autoView(id) {
     const c = CBY[id]; if (!c) return home();
-    if (!AUTO || AUTO.cat !== id) AUTO = { cat: id, list: catWords(id), i: 0, playing: false, speed: S.settings.speed };
+    if (!AUTO || AUTO.cat !== id) AUTO = { cat: id, list: catWords(id), i: 0, playing: false };
     const A = AUTO, w = A.list[A.i];
     return `<div class="light-top"><button class="back" data-a="back" data-v="#/cat/${id}">‹ 返回</button><div class="pg"><i style="width:${(A.i + 1) / A.list.length * 100}%"></i></div><span class="ct">${A.i + 1} / ${A.list.length}</span></div>
       <button class="autoplay" data-a="autoToggle">${A.playing ? '⏸ 暂停连读' : '▶ 自动连读：每个词 泰语' + S.settings.reps + '遍' + (S.settings.zhRead ? ' + 中文' : '')}</button>
       <label class="chk"><input type="checkbox" data-a="zhToggle" ${S.settings.zhRead ? 'checked' : ''}> 同时读中文意思</label>
       <div class="acard">
-        <div class="tools"><button class="spkb" data-a="autoSay">🔊</button><button class="spd" data-a="autoSpeed">🐢 ${A.speed}×</button></div>
+        <div class="tools"><button class="spkb" data-a="autoSay">🔊</button><button class="spd" data-a="autoSpeed">🐢 ${RATE()}×</button></div>
         <div class="th2 thai">${w.th}</div><div class="zh2">${w.zh}</div><div class="rom2">${w.rom}</div>
         ${sylBoxes(w.rom, 'lt')}
+        ${ruleHtml(w, true)}
         ${w.note ? `<div class="note" style="background:#fff;color:var(--text)"><span>🎵</span><span>${w.note}</span></div>` : ''}
         <div class="legend">${Object.values(TONE).map(t => `<span><i style="background:${t.c}"></i>${t.n}</span>`).join('')}</div>
         <div class="exl">${exHtml(w, true)}</div>
@@ -276,11 +290,11 @@
     while (tok === playToken && AUTO && AUTO.playing) {
       const w = AUTO.list[AUTO.i];
       for (let k = 0; k < S.settings.reps; k++) {
-        await playOne('th', w.id, w.th, 'th-TH', AUTO.speed, tok);
+        await playOne('th', w.id, w.th, 'th-TH', RATE(), tok);
         if (tok !== playToken) return;
         await gap(500, tok);
       }
-      if (S.settings.zhRead) { await playOne('zh', zId(w), zText(w), 'zh-CN', 1, tok); await gap(600, tok); }
+      if (S.settings.zhRead) { await playOne('zh', zId(w), zText(w), 'zh-CN', RATE(), tok); await gap(600, tok); }
       if (tok !== playToken) return;
       if (AUTO.i < AUTO.list.length - 1) { AUTO.i++; render(); } else { AUTO.playing = false; render(); return; }
     }
@@ -321,11 +335,11 @@
         navigator.mediaSession.metadata = new MediaMetadata({ title: w.th + '  ' + w.rom, artist: w.zh, album: '泰语学习 · 陪睡模式' });
         navigator.mediaSession.playbackState = 'playing';
       } catch (e) { /* 无媒体会话 */ }
-      await playOne('th', w.id, w.th, 'th-TH', 0.9, tok); if (tok !== playToken) return;
+      await playOne('th', w.id, w.th, 'th-TH', 0.9 * RATE(), tok); if (tok !== playToken) return;
       await gap(1500, tok, true);
-      await playOne('zh', zId(w), zText(w), 'zh-CN', 0.95, tok); if (tok !== playToken) return;
+      await playOne('zh', zId(w), zText(w), 'zh-CN', 0.95 * RATE(), tok); if (tok !== playToken) return;
       await gap(1500, tok, true);
-      await playOne('th', w.id, w.th, 'th-TH', 0.8, tok); if (tok !== playToken) return;
+      await playOne('th', w.id, w.th, 'th-TH', 0.8 * RATE(), tok); if (tok !== playToken) return;
       await gap(3000, tok, true);
     }
   }
@@ -333,6 +347,40 @@
     navigator.mediaSession.setActionHandler('pause', () => SLP.playing && stopSleep());
     navigator.mediaSession.setActionHandler('stop', () => SLP.playing && stopSleep());
   } catch (e) { /* 无媒体会话 */ }
+
+  /* ---------- 页面：声调规则速查 ---------- */
+  function rulesView() {
+    const cell = (t, x) => `<td style="color:${TONE[t].c}">${x || TONE[t].n}</td>`;
+    const lt = s => `<span class="thai">${s}</span>`;
+    const curves = Object.entries(TONE).map(([k, v]) => `<div class="cv" style="border-color:${v.c}">${curve(k)}<b style="color:${v.c}">${v.n}</b><small>${v.m || '无符号'}</small></div>`).join('');
+    return `<div class="study-top"><button class="back" data-a="hist">‹</button><h2>声调规则速查</h2><span style="width:36px"></span></div>
+      <div class="page rulepg">
+        <div class="rc"><h3>五个声调</h3><div class="cvs">${curves}</div></div>
+        <div class="rc"><h3>判断三步走</h3>
+          <p><b>① 辅音类</b>：看起首辅音是高、中、低哪一类。</p>
+          <p><b>② 活／死音节</b>：看元音长短和有没有尾音。</p>
+          <p><b>③ 声调符号</b>：有符号 ( ่ ้ ๊ ๋ ) 按符号定调；没有符号按下表默认调。</p></div>
+        <div class="rc"><h3>① 三类辅音</h3>
+          <p><b style="color:#3b82f6">中辅音（9）</b>${lt('ก จ ฎ ฏ ด ต บ ป อ')}</p>
+          <p><b style="color:#f59e0b">高辅音（11）</b>${lt('ข ฃ ฉ ฐ ถ ผ ฝ ศ ษ ส ห')}</p>
+          <p><b style="color:#22a05a">低辅音（其余）</b>${lt('ค ฆ ง ช ซ ฌ ญ ฑ ฒ ณ ท ธ น พ ฟ ภ ม ย ร ล ว ฬ ฮ')}</p>
+          <p class="sm">复合起首辅音（${lt('กร กล ปล พร ขว')} 等）只看第一个辅音。</p></div>
+        <div class="rc"><h3>② 活音节与死音节</h3>
+          <p><b>活音节</b>：长元音无尾音；或尾音是 ${lt('ง น ม ย ว')}（以及读 n 的 ${lt('ญ ณ ร ล ฬ')}）；ไ ใ เ-า -ำ 也算活音节。</p>
+          <p><b>死音节</b>：短元音无尾音；或尾音是 k／t／p 类（${lt('ก ข ค')}、${lt('ด ต จ ส ท ศ ษ')}、${lt('บ ป พ ฟ')} 等）。</p>
+          <p class="sm">死音节再分长元音／短元音，只影响低辅音。</p></div>
+        <div class="rc"><h3>③ 定调表</h3>
+          <table class="tt"><tr><th></th><th>无符号<br>活音节</th><th>无符号<br>死音节</th><th>${lt('่')}</th><th>${lt('้')}</th><th>${lt('๊')}</th><th>${lt('๋')}</th></tr>
+            <tr><th style="color:#3b82f6">中辅音</th>${cell('mid')}${cell('low')}${cell('low')}${cell('falling')}${cell('high')}${cell('rising')}</tr>
+            <tr><th style="color:#f59e0b">高辅音</th>${cell('rising')}${cell('low')}${cell('low')}${cell('falling')}<td>—</td><td>—</td></tr>
+            <tr><th style="color:#22a05a">低辅音</th>${cell('mid')}<td><span style="color:${TONE.high.c}">短→高调</span><br><span style="color:${TONE.falling.c}">长→降调</span></td>${cell('falling')}${cell('high')}<td>—</td><td>—</td></tr></table></div>
+        <div class="rc"><h3>特殊情况</h3>
+          <p><b>ห 引导</b>：${lt('ห')} 放在低响音辅音（${lt('ง ญ น ม ย ร ล ว')}）前，自己不发音，让后面的字按<b>高辅音</b>定调，如 ${lt('หนึ่ง หมู หวาน')}。</p>
+          <p><b>อ 引导</b>：只有 ${lt('อยู่ อย่า อยาก อย่าง')} 四个词，${lt('อ')} 不发音，让 ${lt('ย')} 按<b>中辅音</b>定调。</p>
+          <p><b>不发音的字母</b>：带 ${lt('์')} 的字母不读，如 ${lt('ศูนย์ เบียร์')}。</p>
+          <p class="sm">外来词、个别口语词可能不按规则读，以实际发音为准。</p></div>
+      </div>`;
+  }
 
   /* ---------- 页面：设置 ---------- */
   function settings() {
@@ -343,7 +391,8 @@
       <div class="setl">
         <div class="r"><span>每日新词</span>${seg('daily', [5, 10, 15, 20])}</div>
         <div class="r"><span>连读遍数</span>${seg('reps', [1, 2, 3, 5])}</div>
-        <div class="r"><span>连读语速</span>${seg('speed', [0.6, 0.8, 1])}</div>
+        <div class="r col"><span>发音语速<small>单词、例句、连读、陪睡模式都按这个速度（倍速）</small></span>${seg('rate', RATES)}</div>
+        <button class="r" style="width:100%;background:none" data-a="go" data-v="#/rules"><span>声调规则速查表</span><span>›</span></button>
         <div class="r"><span>学习卡自动发音</span>${sw('auto')}</div>
         <div class="r"><span>连读时读中文</span>${sw('zhRead')}</div>
         <div class="r"><span>解锁全部分类<small>关闭时需学完上一分类 50%</small></span>${sw('unlockAll')}</div>
@@ -359,12 +408,12 @@
   /* ---------- 路由 ---------- */
   function render() {
     const [, r, p] = (location.hash || '#/today').split('/');
-    const full = ['study', 'auto', 'sleep', 'cat'].includes(r);
+    const full = ['study', 'auto', 'sleep', 'cat', 'rules'].includes(r);
     document.body.classList.toggle('nonav', full);
     tabs.className = full ? 'hide' : '';
     const cur = ['today', 'cats', 'review', 'settings'].includes(r) ? r : (r === undefined ? 'today' : '');
     tabs.innerHTML = `<div class="in">${[['today', '☀︎', '今日'], ['cats', '▦', '分类'], ['review', '↻', '复习'], ['settings', '⚙︎', '设置']].map(([k, i, t]) => `<a href="#/${k}" class="${cur === k ? 'on' : ''}"><i>${i}</i>${t}</a>`).join('')}</div>`;
-    const views = { today: home, cats, cat: () => catPage(p), study, review, auto: () => autoView(p), sleep: sleepView, settings };
+    const views = { today: home, cats, cat: () => catPage(p), study, review, auto: () => autoView(p), sleep: sleepView, settings, rules: rulesView };
     app.innerHTML = (views[r] || home)();
     const imp = document.getElementById('imp');
     if (imp) imp.onchange = importProgress;
@@ -395,7 +444,7 @@
     studyCat: v => { const un = catWords(v).filter(w => !seen(w.id)).map(w => w.id); startSession((un.length ? un.slice(0, S.settings.daily) : catWords(v).map(w => w.id)), CBY[v].name); },
     oneWord: v => startSession([v], '单词'),
     startReview: () => startSession(shuffle(dueIds()).slice(0, 30), '复习'),
-    sayWord: v => sayWord(BY[v], 1),
+    sayWord: v => sayWord(BY[v]),
     sayEx: v => sayEx(BY[v]),
     sayZh: v => sayZh(BY[v]),
     rate: v => {
@@ -406,8 +455,10 @@
     },
     autoToggle: () => { AUTO.playing = !AUTO.playing; if (AUTO.playing) { render(); autoLoop(); } else { stopAudio(); render(); } },
     zhToggle: () => { S.settings.zhRead = !S.settings.zhRead; save(); render(); },
-    autoSay: () => { AUTO.playing = false; sayWord(AUTO.list[AUTO.i], AUTO.speed); render(); },
-    autoSpeed: () => { const o = [0.8, 1, 0.6]; AUTO.speed = o[(o.indexOf(AUTO.speed) + 1) % 3]; render(); },
+    autoSay: () => { AUTO.playing = false; sayWord(AUTO.list[AUTO.i]); render(); },
+    autoSpeed: () => { S.settings.rate = RATES[(RATES.indexOf(RATE()) + 1) % RATES.length]; save(); render(); },
+    studySpeed: () => { S.settings.rate = RATES[(RATES.indexOf(RATE()) + 1) % RATES.length]; save(); render(); },
+    hist: () => history.back(),
     autoPrev: () => { const was = AUTO.playing; stopAudio(); AUTO.i = Math.max(0, AUTO.i - 1); render(); if (was) autoLoop(); },
     autoNext: () => { const was = AUTO.playing; stopAudio(); AUTO.i = Math.min(AUTO.list.length - 1, AUTO.i + 1); render(); if (was) autoLoop(); },
     level: v => { setBox(AUTO.list[AUTO.i].id, [0, 1, 3, 5][+v]); ACT.autoNext(); },
