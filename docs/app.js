@@ -56,7 +56,7 @@
   const defaults = () => ({
     w: {}, days: [], today: { date: '', ids: [] },
     settings: { ver: 2, daily: 10, reps: 1, rate: 1, showRom: false, auto: true, zhRead: true, readEx: true, chain: true },
-    sleep: { dur: 30, cats: [], rand: false },
+    sleep: { dur: 30, cats: [], rand: false, ex: true, zh: true },
   });
   let S = (() => {
     try {
@@ -129,8 +129,8 @@
   function playOne(kind, id, text, lang, rate, tok) {
     return new Promise(res => {
       if (tok !== playToken) return res(false);
-      let done = false, fell = false;
-      const fin = ok => { if (done) return; done = true; pending = null; AU.onended = AU.onerror = null; res(ok); };
+      let done = false, fell = false, wd = 0, last = -1, idle = 0;
+      const fin = ok => { if (done) return; done = true; clearInterval(wd); pending = null; AU.onended = AU.onerror = null; res(ok); };
       const fall = () => { if (fell) return; fell = true; if (!text) return fin(false); speak(text, lang, rate, tok).then(fin); };
       pending = fin;
       AU.onended = () => fin(true);
@@ -140,6 +140,12 @@
       AU.playbackRate = rate;
       const p = AU.play();
       if (p && p.catch) p.catch(fall);
+      // 看门狗：10 秒内播放位置没有前进（网络卡住、系统挂起、没触发结束事件）就当这一段播完，继续下一段
+      wd = setInterval(() => {
+        if (fell) return;
+        if (AU.currentTime !== last) { last = AU.currentTime; idle = 0; return; }
+        if (++idle >= 20) { try { AU.pause(); } catch (e) { /* 忽略 */ } fin(false); }
+      }, 500);
     });
   }
   const sayWord = (w, rate = RATE()) => { stopAudio(); return playOne('th', w.id, w.th, 'th-TH', rate, playToken); };
@@ -147,7 +153,7 @@
   const sayZh = w => { stopAudio(); return playOne('zh', zId(w), zText(w), 'zh-CN', RATE(), playToken); };
   // 一个词的连读顺序：单词（reps 遍）→ 单词的中文 → 例句 → 例句的中文（中文只在“读中文意思”开启时读，例句只在 withEx 时读）
   // 停顿随语速伸缩；下一段音频提前下载好，切换时不会卡顿
-  const pause = (ms, tok) => gap(ms * Math.min(1.6, Math.max(0.7, 1 / RATE())), tok);
+  const pause = (ms, tok, keep) => gap(ms * Math.min(1.6, Math.max(0.7, 1 / RATE())), tok, keep);
   const warm = u => { try { fetch(u).catch(() => {}); } catch (e) { /* 忽略 */ } };
   async function playChain(w, tok, reps, withEx) {
     const zh = S.settings.zhRead, r = RATE();
@@ -228,7 +234,7 @@
       <div class="menu">
         <button data-a="go" data-v="#/cats"><span class="ic">▦</span><span class="tt"><b>全部分类</b><span>浏览全部 ${WORDS.length} 词</span></span><span class="arr">›</span></button>
         <button data-a="go" data-v="#/review"><span class="ic">↻</span><span class="tt"><b>复习</b><span>${dueN ? dueN + ' 个词待复习' : '巩固已学过的内容'}</span></span><span class="arr">›</span></button>
-        <button data-a="go" data-v="#/sleep"><span class="ic" style="background:#dff0ee">🌙</span><span class="tt"><b>陪睡模式</b><span>睡前自动播放单词，磨耳朵学外语</span></span><span class="arr">›</span></button>
+        <button data-a="go" data-v="#/sleep"><span class="ic" style="background:#dff0ee">🌙</span><span class="tt"><b>夜读模式</b><span>睡前自动连续播放单词和例句</span></span><span class="arr">›</span></button>
       </div>
     </div>`;
   }
@@ -328,52 +334,98 @@
     }
   }
 
-  /* ---------- 页面：陪睡模式 ---------- */
-  let SLP = { playing: false, endAt: 0, cur: null };
+  /* ---------- 页面：夜读模式（原陪睡模式）---------- */
+  let SLP = { playing: false, paused: false, endAt: 0, left: 0, list: [], i: 0 };
+  const fmtT = ms => { const t = Math.max(0, Math.round(ms / 1000)); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+  const sleepPool = () => WORDS.filter(w => !S.sleep.cats.length || S.sleep.cats.includes(w.cat));
   function sleepView() {
+    if (SLP.playing) return nightPlayer();
     const sl = S.sleep, on = c => (c === 'all' ? !sl.cats.length : sl.cats.includes(c));
     const durs = [[0, '一直播'], [15, '15分钟'], [30, '30分钟'], [45, '45分钟'], [60, '60分钟'], [120, '2小时']];
     return `<div class="sleep"><div class="tb"><button class="back" data-a="back" data-v="#/today">‹</button></div>
-      <div class="moon">🌙</div><h1>陪睡模式</h1><p class="s">自动循环播放单词发音，<br>在睡前轻松磨耳朵学外语</p>
-      <button class="bigplay ${SLP.playing ? 'playing' : ''}" data-a="sleepToggle"><span><div style="font-size:48px;color:var(--gold)">${SLP.playing ? '⏸' : '🌙'}</div>${SLP.playing ? '停止播放' : '开始播放'}</span></button>
-      <div class="now" id="now"></div>
+      <div class="moon">🌙</div><h1>夜读模式</h1><p class="s">自动连续播放单词和例句，<br>睡前轻松磨耳朵学外语</p>
+      <button class="bigplay" data-a="sleepToggle"><span><div style="font-size:48px;color:var(--gold)">🌙</div>开始播放</span></button>
+      <h3>播放内容</h3><div class="chips">
+        <button class="chip ${sl.ex ? 'on' : ''}" data-a="sleepOpt" data-v="ex">播放例句</button>
+        <button class="chip ${sl.zh ? 'on' : ''}" data-a="sleepOpt" data-v="zh">播放中文</button></div>
       <h3>播放时长</h3><div class="chips">${durs.map(([m, t]) => `<button class="chip ${sl.dur === m ? 'on' : ''}" data-a="sleepDur" data-v="${m}">${t}</button>`).join('')}</div>
       <h3>选择分类</h3><div class="chips"><button class="chip ${on('all') ? 'on' : ''}" data-a="sleepCat" data-v="all">全部</button>${CATS.map(c => `<button class="chip ${on(c.id) ? 'on' : ''}" data-a="sleepCat" data-v="${c.id}">${c.icon} ${c.name}</button>`).join('')}</div>
       <div class="set"><span>随机顺序</span><button class="sw ${sl.rand ? 'on' : ''}" data-a="sleepRand"></button></div></div>`;
   }
-  function setNow(txt) { const n = document.getElementById('now'); if (n) n.textContent = txt; }
+  function nightPlayer() {
+    const sl = S.sleep, w = SLP.list[SLP.i] || SLP.list[0];
+    const tm = SLP.endAt || SLP.paused ? fmtT(SLP.paused ? SLP.left : SLP.endAt - Date.now()) : '∞';
+    return `<div class="sleep night"><div class="ntop"><button class="x" data-a="sleepToggle">✕</button><span class="tmr">⏱ <span id="tm">${tm}</span></span><span class="sp"></span></div>
+      <div class="cnt">${SLP.i + 1} / ${SLP.list.length}</div>
+      <div class="nzh">${w.zh}</div>
+      <div class="nth thai" ${w.th.length > 9 ? `style="font-size:${w.th.length > 14 ? 34 : 46}px"` : ''}>${w.th}</div>
+      ${showRom() ? `<div class="nrom">${w.rom}</div>` : ''}
+      <div class="nex">${exHtml(w, false)}</div>
+      <div class="ctl"><button data-a="sleepPrev">‹</button><button class="pp" data-a="sleepPause">${SLP.paused ? '▶' : '⏸'}</button><button data-a="sleepNext">›</button></div>
+      <div class="nopt"><span>速度</span>${RATES.map(r => `<button class="chip s ${RATE() === r ? 'on' : ''}" data-a="set" data-v="rate:${r}">${r}x</button>`).join('')}</div>
+      <div class="nopt">
+        <button class="chip s ${sl.ex ? 'on' : ''}" data-a="sleepOpt" data-v="ex">播放例句</button>
+        <button class="chip s ${sl.zh ? 'on' : ''}" data-a="sleepOpt" data-v="zh">播放中文</button>
+        <button class="chip s ${sl.rand ? 'on' : ''}" data-a="sleepRand">随机播放</button></div></div>`;
+  }
+  setInterval(() => {
+    const t = document.getElementById('tm');
+    if (t && SLP.playing && !SLP.paused && SLP.endAt) t.textContent = fmtT(SLP.endAt - Date.now());
+  }, 1000);
   function stopSleep() {
-    SLP.playing = false; stopAudio();
-    try { navigator.mediaSession.playbackState = 'paused'; } catch (e) { /* 无媒体会话 */ }
+    SLP.playing = false; SLP.paused = false; stopAudio();
+    try { navigator.mediaSession.playbackState = 'none'; } catch (e) { /* 无媒体会话 */ }
     if (location.hash === '#/sleep') render();
   }
+  function sleepSeek(d) {
+    if (!SLP.playing) return;
+    stopAudio();
+    SLP.i = (SLP.i + d + SLP.list.length) % SLP.list.length;
+    if (SLP.paused) { SLP.paused = false; if (SLP.left) SLP.endAt = Date.now() + SLP.left; }
+    render(); sleepLoop();
+  }
+  function sleepPause() {
+    if (!SLP.playing) return;
+    if (SLP.paused) {
+      SLP.paused = false;
+      if (SLP.left) SLP.endAt = Date.now() + SLP.left;
+      render(); sleepLoop();
+    } else {
+      SLP.paused = true; SLP.left = SLP.endAt ? Math.max(0, SLP.endAt - Date.now()) : 0;
+      stopAudio(); render();
+    }
+  }
+  // 一个词：单词 → 中文 → 例句 → 例句中文，每一步都有超时保护，停顿全部用静音垫片撑住，锁屏也不会断
   async function sleepLoop() {
     stopAudio();
-    const tok = playToken, sl = S.sleep;
-    const pool = () => WORDS.filter(w => !sl.cats.length || sl.cats.includes(w.cat));
-    let list = sl.rand ? shuffle(pool()) : pool(), i = 0;
-    while (tok === playToken && SLP.playing) {
+    const tok = playToken, live = () => tok === playToken && SLP.playing && !SLP.paused;
+    while (live()) {
       if (SLP.endAt && Date.now() > SLP.endAt) return stopSleep();
-      if (i >= list.length) { i = 0; if (sl.rand) list = shuffle(list); }
-      const w = list[i++];
-      SLP.cur = w;
-      const left = SLP.endAt ? Math.max(0, Math.round((SLP.endAt - Date.now()) / 60000)) : null;
-      setNow(`${w.th}　${w.zh}${left !== null ? '　· 剩余约 ' + left + ' 分钟' : ''}`);
+      if (SLP.i >= SLP.list.length) { SLP.i = 0; if (S.sleep.rand) SLP.list = shuffle(SLP.list); }
+      const w = SLP.list[SLP.i], nx = SLP.list[SLP.i + 1], sl = S.sleep, r = RATE();
       try {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: showRom() ? w.th + '  ' + w.rom : w.th, artist: w.zh, album: '泰语学习 · 陪睡模式' });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: w.th, artist: w.zh, album: '泰语学习 · 夜读模式' });
         navigator.mediaSession.playbackState = 'playing';
       } catch (e) { /* 无媒体会话 */ }
-      await playOne('th', w.id, w.th, 'th-TH', 0.9 * RATE(), tok); if (tok !== playToken) return;
-      await gap(1500, tok, true);
-      await playOne('zh', zId(w), zText(w), 'zh-CN', 0.95 * RATE(), tok); if (tok !== playToken) return;
-      await gap(1500, tok, true);
-      await playOne('th', w.id, w.th, 'th-TH', 0.8 * RATE(), tok); if (tok !== playToken) return;
-      await gap(3000, tok, true);
+      if (location.hash === '#/sleep') render();
+      if (nx) setTimeout(() => warm(`audio/th/${nx.id}.mp3`), 600);
+      await playOne('th', w.id, w.th, 'th-TH', 0.9 * r, tok); if (!live()) return;
+      if (sl.zh) { await pause(1200, tok, true); if (!live()) return; await playOne('zh', zId(w), zText(w), 'zh-CN', r, tok); if (!live()) return; }
+      if (sl.ex) {
+        await pause(1500, tok, true); if (!live()) return;
+        await playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', 0.9 * r, tok); if (!live()) return;
+        if (sl.zh) { await pause(1200, tok, true); if (!live()) return; await playOne('ezh', w.ex.id, w.ex.zh.replace(/（[^）]*）/g, ''), 'zh-CN', r, tok); if (!live()) return; }
+      }
+      await pause(2500, tok, true); if (!live()) return;
+      SLP.i++;
     }
   }
   try {
-    navigator.mediaSession.setActionHandler('pause', () => SLP.playing && stopSleep());
+    navigator.mediaSession.setActionHandler('play', () => SLP.playing && SLP.paused && sleepPause());
+    navigator.mediaSession.setActionHandler('pause', () => SLP.playing && !SLP.paused && sleepPause());
     navigator.mediaSession.setActionHandler('stop', () => SLP.playing && stopSleep());
+    navigator.mediaSession.setActionHandler('nexttrack', () => sleepSeek(1));
+    navigator.mediaSession.setActionHandler('previoustrack', () => sleepSeek(-1));
   } catch (e) { /* 无媒体会话 */ }
 
   /* ---------- 页面：声调规则速查 ---------- */
@@ -419,7 +471,7 @@
       <div class="setl">
         <div class="r"><span>每日新词</span>${seg('daily', [5, 10, 15, 20])}</div>
         <div class="r"><span>连读遍数</span>${seg('reps', [1, 2, 3, 5])}</div>
-        <div class="r col"><span>发音语速<small>单词、例句、连读、陪睡模式都按这个速度（倍速）</small></span>${seg('rate', RATES)}</div>
+        <div class="r col"><span>发音语速<small>单词、例句、连读、夜读模式都按这个速度（倍速）</small></span>${seg('rate', RATES)}</div>
         <button class="r" style="width:100%;background:none" data-a="go" data-v="#/rules"><span>声调规则速查表</span><span>›</span></button>
         <div class="r"><span>学习卡自动发音</span>${sw('auto')}</div>
         <div class="r"><span>学习卡连读例句<small>自动读完单词（和中文）后，接着读例句</small></span>${sw('chain')}</div>
@@ -492,10 +544,19 @@
     autoPrev: () => { const was = AUTO.playing; stopAudio(); AUTO.i = Math.max(0, AUTO.i - 1); render(); if (was) autoLoop(); },
     autoNext: () => { const was = AUTO.playing; stopAudio(); AUTO.i = Math.min(AUTO.list.length - 1, AUTO.i + 1); render(); if (was) autoLoop(); },
     level: v => { setBox(AUTO.list[AUTO.i].id, [0, 1, 3, 5][+v]); ACT.autoNext(); },
-    sleepToggle: () => { if (SLP.playing) return stopSleep(); SLP = { playing: true, endAt: S.sleep.dur ? Date.now() + S.sleep.dur * 60000 : 0, cur: null }; render(); sleepLoop(); },
+    sleepToggle: () => {
+      if (SLP.playing) return stopSleep();
+      const list = sleepPool(); if (!list.length) return toast('这个分类还没有词');
+      SLP = { playing: true, paused: false, endAt: S.sleep.dur ? Date.now() + S.sleep.dur * 60000 : 0, left: 0, list: S.sleep.rand ? shuffle(list) : list, i: 0 };
+      render(); sleepLoop();
+    },
+    sleepPause: () => sleepPause(),
+    sleepPrev: () => sleepSeek(-1),
+    sleepNext: () => sleepSeek(1),
+    sleepOpt: v => { S.sleep[v] = !S.sleep[v]; save(); render(); },
     sleepDur: v => { S.sleep.dur = +v; save(); render(); },
     sleepCat: v => { const c = S.sleep.cats; if (v === 'all') S.sleep.cats = []; else S.sleep.cats = c.includes(v) ? c.filter(x => x !== v) : c.concat(v); save(); render(); },
-    sleepRand: () => { S.sleep.rand = !S.sleep.rand; save(); render(); },
+    sleepRand: () => { S.sleep.rand = !S.sleep.rand; if (SLP.playing) { const cur = SLP.list[SLP.i]; SLP.list = S.sleep.rand ? shuffle(sleepPool()) : sleepPool(); SLP.i = Math.max(0, SLP.list.indexOf(cur)); } save(); render(); },
     set: v => { const [k, x] = v.split(':'); S.settings[k] = +x; save(); render(); },
     setBool: v => { S.settings[v] = !S.settings[v]; save(); render(); },
     export: () => {
