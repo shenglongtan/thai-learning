@@ -395,7 +395,7 @@
       stopAudio(); render();
     }
   }
-  // 一个词：单词 → 中文 → 例句 → 例句中文，每一步都有超时保护，停顿全部用静音垫片撑住，锁屏也不会断
+  // 一个词：单词 → 中文 → 例句 → 例句中文，每一步都有超时保护，停顿很短（像正常说话的间隔）
   async function sleepLoop() {
     stopAudio();
     const tok = playToken, live = () => tok === playToken && SLP.playing && !SLP.paused;
@@ -410,13 +410,13 @@
       if (location.hash === '#/sleep') render();
       if (nx) setTimeout(() => warm(`audio/th/${nx.id}.mp3`), 600);
       await playOne('th', w.id, w.th, 'th-TH', 0.9 * r, tok); if (!live()) return;
-      if (sl.zh) { await pause(1200, tok, true); if (!live()) return; await playOne('zh', zId(w), zText(w), 'zh-CN', r, tok); if (!live()) return; }
+      if (sl.zh) { await pause(350, tok); if (!live()) return; await playOne('zh', zId(w), zText(w), 'zh-CN', r, tok); if (!live()) return; }
       if (sl.ex) {
-        await pause(1500, tok, true); if (!live()) return;
+        await pause(450, tok); if (!live()) return;
         await playOne('ex', w.ex.id, w.ex.seg.join(''), 'th-TH', 0.9 * r, tok); if (!live()) return;
-        if (sl.zh) { await pause(1200, tok, true); if (!live()) return; await playOne('ezh', w.ex.id, w.ex.zh.replace(/（[^）]*）/g, ''), 'zh-CN', r, tok); if (!live()) return; }
+        if (sl.zh) { await pause(350, tok); if (!live()) return; await playOne('ezh', w.ex.id, w.ex.zh.replace(/（[^）]*）/g, ''), 'zh-CN', r, tok); if (!live()) return; }
       }
-      await pause(2500, tok, true); if (!live()) return;
+      await pause(800, tok); if (!live()) return;
       SLP.i++;
     }
   }
